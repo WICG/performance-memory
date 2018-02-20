@@ -26,7 +26,7 @@ footprint, thus making this task very difficult.
 
 The current implementation of performance.memory in Chrome exposes
 totalJSHeapSize. This metric has two problems:
-* It is inactionable because it only represents part of renderer memory usage.
+* It cannot be used to identify regressions because it only represents part of renderer memory usage.
   * In the wild, totalJSHeapSize typically ranges from 25-40% of renderer memory
 usage.
   * It does not include DOM memory [Oilpan, PartitionAlloc], canvas backing stores,
@@ -118,7 +118,7 @@ memory?
   [Appendix B](#appendix-b) for more details. Furthermore, the site rarely has
   direct control over the use of shared memory - it's primarily used as an
   optimization by browser vendors. Not including shared memory in the
-  calculation avoids all of these complication
+  calculation avoids all of these complications.
 * **resident/swapped/compressed**: Whether memory is resident, swapped, or
   compressed is context dependent - it primarily depends on system memory
   pressure, and whether the memory was recently used. For compressed memory, we
@@ -139,7 +139,7 @@ def GetPrivateMemoryFootprint:
       if (Darwin.supports_phys_footprint):
         return task_info.phys_footprint - GetAnonymousResidentSharedMemory()
       return task_info.internal + task_info.compressed - GetAnonymousResidentSharedMemory()
-    default:
+    default [Linux-derivative]:
       status = /proc/<pid>/status
       return status.RssAnon + status.VmSwap
 
@@ -226,7 +226,7 @@ used by the authors to determine memory usage for a given process.
 * Darwin:
   [vmmap](https://developer.apple.com/legacy/library/documentation/Darwin/Reference/ManPages/man1/vmmap.1.html)
 * Linux/Derivatives:
-  [/proc/<pid>/smaps](http://man7.org/linux/man-pages/man5/proc.5.html)
+  [/proc/\<pid\>/smaps](http://man7.org/linux/man-pages/man5/proc.5.html)
 
 # <a name="appendix-b"></a> Appendix B - Shared Memory
 
@@ -248,17 +248,21 @@ binary itself, all of which are outside of the control of developers.
 In Chrome, we have implemented ownership tracking for anonymous shared memory
 regions - each shared memory region counts towards exactly one process, which is
 determined by the type and usage of the shared memory region. We considered
-exposing these numbers in performance.memory, but it seemed like it add
-relatively low utility. The two main use cases are shared tiles between a
-renderer and GPU process, and shared network resources between a renderer and
-the browser process. Both of these are Chrome-specific optimizations,
-context-dependent, and pretty much entirely outside of the control of
-developers.
+exposing these numbers in performance.memory, but it seemed like it would cause
+more confusion than it would help. The two main use cases are shared tiles
+between a renderer and GPU process, and shared network resources between a
+renderer and the browser process. Both of these are Chrome-specific
+optimizations, context-dependent, and pretty much entirely outside of the
+control of developers.
 
 # Appendix C - Examples of memory problems
 
-TODO:
+## Memory problems that the proposed API would help solve.
+TODO: More specific examples.
+* event-listener Retain cycle
+* Leaking Canvas.
+
+## Memory problems that the proposed API would not help solve.
+TODO: Do we need this?
 * Wired memory leak
 * Intel driver leak
-* Retain cycle
-* Leaking Canvas.
