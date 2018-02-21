@@ -80,15 +80,16 @@ window.performance.memory
 // by the same process. Once site-isolation is enabled, this will never be the
 // case.
 dictionary {
-  // Private memory footprint includes all private memory being used by the
-  // process hosting the site.
+  // All private memory being used by the process hosting the site.
   privateMemoryFootprint: 12341234,
 
-  // TODO[hpayer]: Write a comment.
-  totalJSHeapSize: 58054528,
-
-  // TODO[hpayer]: Write a comment.
+  // Sum of size of all JS-related entities in the process hosting the site.
+  // Includes objects, functions, closures, array buffers, etc.
   usedJSHeapSize: 42930044
+
+  // All memory used by the JS heap in the process hosting the site.
+  // Includes everything from usedJSHeapSize, and also fragmentation.
+  totalJSHeapSize: 58054528,
 }
 ```
 
@@ -103,10 +104,10 @@ We define **privateMemoryFootprint** as non-reusable, private, anonymous,
 resident/swapped/compressed memory. See [Appendix A](#appendix-a) for
 definitions of these terms.
 
-**usedJSHeapSize** reflects the accumulative size of objects memory used by the JS implementation, including
-objects, functions, closures, array buffers, etc. It does not include memory of objects
-used by the DOM, the browser vendor's internal data structures, and memory used
-by graphics/audio libraries.
+**usedJSHeapSize** reflects the accumulative size of objects memory used by the
+JS implementation, including objects, functions, closures, array buffers, etc.
+It does not include memory of objects used by the DOM, the browser vendor's
+internal data structures, and memory used by graphics/audio libraries.
 
 **totalJSHeapSize** reflects memory used by the JS implementation heap to store
 JS objects. This includes objects, functions, closures, array buffers, etc. and
@@ -156,14 +157,14 @@ def GetPrivateMemoryFootprint:
       return status.RssAnon + status.VmSwap
 
 def GetAnonymousResidentSharedMemory:
-  <Requires the browser-vendor to internally account for anonymous, resident,
+  <Requires the browser vendor to internally account for anonymous, resident,
   shared memory regions on macOS>.
 
 def GetTotalJSHeapSize:
-  <Requires the browser-vendor to internally account for JS heap usage>
+  <Requires the browser vendor to internally account for JS heap usage>
 
 def GetUsedJSHeapSize:
-  <Requires the browser-vendor to internally account for JS heap usage>
+  <Requires the browser vendor to internally account for JS heap usage>
 ```
 
 ## Drawbacks
