@@ -24,20 +24,8 @@ Some developers wish to reduce the memory footprint of their site, or at least
 prevent it from getting worse. There is currently no API to measure the memory
 footprint, thus making this task very difficult.
 
-The current implementation of performance.memory in Chrome exposes
-usedJSHeapSize and totalJSHeapSize. These metrics have two problems:
-* They cannot be used to identify regressions because they only represents part of renderer memory usage.
-  * In the wild, totalJSHeapSize typically ranges from 25-40% of renderer memory
-usage.
-  * They does not include DOM memory [Oilpan, PartitionAlloc], canvas backing stores,
-decoded images/videos, etc.
-  * It is possible for developers to improve both usedJSHeapSize and totalJSHeapSize by shifting memory into
-other allocators.
-* It is non-intuitive because it only includes part of the memory developers
-typically associate with JS.
-  * Large ArrayBuffers are not included in usedJSHeapSize and totalJSHeapSize,
-    since they are backed by PartitionAlloc.
-  * External strings are not included in usedJSHeapSize and totalJSHeapSize
+See [Appendix D](#appendix-d) for a description of Chrome's current
+implementation of performance.memory, and why it does not solve the problem.
 
 # Use cases
 
@@ -93,12 +81,12 @@ interface MemoryInfo {
 }
 ```
 
-# Implementation
+# Proposed Implementation Outline
 
-For **privateMemoryFootprint**, **totalJSHeapSize**, and **usedJSHeapSize** we only have
-accurate accounting when the process is hosting a single top level frame. As
-such, we return null anytime the process is hosting more than a single top level
-frame.
+For **privateMemoryFootprint**, **totalJSHeapSize**, and **usedJSHeapSize** we
+only have accurate accounting when the process is hosting a single top level
+frame. As such, we return null anytime the process is hosting more than a single
+top level frame.
 
 We define **privateMemoryFootprint** as non-reusable, private, anonymous,
 resident/swapped/compressed memory. See [Appendix A](#appendix-a) for
@@ -280,3 +268,20 @@ implement](https://groups.google.com/a/chromium.org/forum/#!topic/blink-dev/no00
 which desribes updating performance.memory to return null if there are multiple
 top level frames being hosted in a process. If the site is isolated, then the
 time-delay and bucketing are removed.
+
+# <a name="appendix-d"></a> Appendix D - Chrome's Previous Implementation of performance.memory
+
+The current implementation of performance.memory in Chrome exposes
+usedJSHeapSize and totalJSHeapSize. These metrics have two problems:
+* They cannot be used to identify regressions because they only represents part of renderer memory usage.
+  * In the wild, totalJSHeapSize typically ranges from 25-40% of renderer memory
+usage.
+  * They does not include DOM memory [Oilpan, PartitionAlloc], canvas backing stores,
+decoded images/videos, etc.
+  * It is possible for developers to improve both usedJSHeapSize and totalJSHeapSize by shifting memory into
+other allocators.
+* It is non-intuitive because it only includes part of the memory developers
+typically associate with JS.
+  * Large ArrayBuffers are not included in usedJSHeapSize and totalJSHeapSize,
+    since they are backed by PartitionAlloc.
+  * External strings are not included in usedJSHeapSize and totalJSHeapSize
