@@ -186,7 +186,8 @@ counters.
   be resident, but not faulted.
 * On macOS, phys_footprint is similar to internal + compressed, but also
   includes IOKit memory. While the memory is technically shared rather than
-  private, functionally it behaves more similar to private memory.
+  private, functionally it behaves similarly to private memory. Thus, counting
+  it as part of privateMemoryFootprint seems appropriate.
 
 # <a name="appendix-a"></a>Appendix A - Terminology
 
