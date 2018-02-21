@@ -35,8 +35,8 @@ decoded images/videos, etc.
 other allocators.
 * It is non-intuitive because it only includes part of the memory developers
 typically associate with JS.
-  * Large ArrayBuffers are not included in usedJSHeapSize and totalJSHeapSize, since they are backed by
-PartitionAlloc.
+  * Large ArrayBuffers are not included in usedJSHeapSize and totalJSHeapSize,
+    since they are backed by PartitionAlloc.
   * External strings are not included in usedJSHeapSize and totalJSHeapSize
 
 # Use cases
@@ -52,7 +52,7 @@ see if the new version of the site regresses the metric.
 * Minimal/no overhead when the API is not used.
 * Comprehensive
   * Should account for all memory allocated on behalf of the web page, including
-    memory required by the browser vendor internal structures.
+    memory required by the browser's internal structures.
 * Actionable
   * When used as a signal in aggregate, there should be low false positives and
     low false negatives.
@@ -60,26 +60,34 @@ see if the new version of the site regresses the metric.
     probability that there is an unintentional memory-related coding error.
   * With high probability, memory-related coding errors should cause regression
     in the aggregate metric.
-  * The usedJSHeapSize and totalJSHeapSize sub-metrics provides some insight into the possible
-    source of bloat.
+  * The usedJSHeapSize and totalJSHeapSize sub-metrics provides some insight
+    into the possible source of bloat.
 * Accurate or null
-  * If accurate metrics cannot be obtained, return null.
+  * If accurate metrics cannot be obtained, return null. This is better than
+    returning inaccurate numbers. See [Appendix C](#appendix-c) for more
+    details.
 * Definition consistent on all [supported platforms](#supported-platforms).
 
 # Proposed API
 
-TODO: clean up the API.
-TODO: Should we still expose jsHeapSizeLimit(?)
 
 ```
-// A read-only property
+// A read-only property named |memory| on the Performance object.
 window.performance.memory
 
-// Returns
+// Contains a dictionary of memory metrics.
+// All values will be |null| if there are multiple top-level frames being hosted
+// by the same process. Once site-isolation is enabled, this will never be the
+// case.
 dictionary {
+  // Private memory footprint includes all private memory being used by the
+  // process hosting the site.
   privateMemoryFootprint: 12341234,
-  jsHeapSizeLimit: 767557632,
+
+  // TODO[hpayer]: Write a comment.
   totalJSHeapSize: 58054528,
+
+  // TODO[hpayer]: Write a comment.
   usedJSHeapSize: 42930044
 }
 ```
@@ -100,10 +108,12 @@ objects, functions, closures, array buffers, etc. It does not include memory of 
 used by the DOM, the browser vendor's internal data structures, and memory used
 by graphics/audio libraries.
 
-**totalJSHeapSize** reflects memory used by the JS implementation heap to store JS objects. This includes
-objects, functions, closures, array buffers, etc. and free memory (fragmentation) in between these objects that cannot
-be used for anything else than other JS objects. It does not include memory used by the DOM, the browser vendor's internal data structures, and memory used
-by graphics/audio libraries.
+**totalJSHeapSize** reflects memory used by the JS implementation heap to store
+JS objects. This includes objects, functions, closures, array buffers, etc. and
+free memory (fragmentation) in between these objects that cannot be used for
+anything else than other JS objects. It does not include memory used by the DOM,
+the browser vendor's internal data structures, and memory used by graphics/audio
+libraries.
 
 ## Rationale
 
@@ -146,11 +156,14 @@ def GetPrivateMemoryFootprint:
       return status.RssAnon + status.VmSwap
 
 def GetAnonymousResidentSharedMemory:
-  <Requires browser-vendor specific accounting for resident, shared memory
-  regions>.
+  <Requires the browser-vendor to internally account for anonymous, resident,
+  shared memory regions on macOS>.
 
 def GetTotalJSHeapSize:
-  TODO
+  <Requires the browser-vendor to internally account for JS heap usage>
+
+def GetUsedJSHeapSize:
+  <Requires the browser-vendor to internally account for JS heap usage>
 ```
 
 ## Drawbacks
@@ -214,7 +227,7 @@ on a per-platform basis, and use terminology specific to that platform.
   child is given a private copy of the page.
 * **Shared** - A virtual page whose contents could be shared with other
   processes.
-* ** File-backed ** - A virtual page whose contents reflect those of a
+* **File-backed** - A virtual page whose contents reflect those of a
   file.
 * **Anonymous** - A virtual page that is not file-backed.
 
@@ -257,14 +270,11 @@ renderer and the browser process. Both of these are Chrome-specific
 optimizations, context-dependent, and pretty much entirely outside of the
 control of developers.
 
-# Appendix C - Examples of memory problems
+# <a name="appendix-c"></a> Appendix C - Time-Delay, Bucketing, Site-Isolation
 
-## Memory problems that the proposed API would help solve.
-TODO: More specific examples.
-* event-listener Retain cycle
-* Leaking Canvas.
-
-## Memory problems that the proposed API would not help solve.
-TODO: Do we need this?
-* Wired memory leak
-* Intel driver leak
+The current implementation of performance.memory in Chrome applies quantization
+and bucketing to the returned numbers. There is a [blink intent to
+implement](https://groups.google.com/a/chromium.org/forum/#!topic/blink-dev/no00RdMnGio)
+which desribes updating performance.memory to return null if there are multiple
+top level frames being hosted in a process. If the site is isolated, then the
+time-delay and bucketing are removed.
