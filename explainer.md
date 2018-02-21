@@ -25,19 +25,19 @@ prevent it from getting worse. There is currently no API to measure the memory
 footprint, thus making this task very difficult.
 
 The current implementation of performance.memory in Chrome exposes
-totalJSHeapSize. This metric has two problems:
-* It cannot be used to identify regressions because it only represents part of renderer memory usage.
+usedJSHeapSize and totalJSHeapSize. These metrics have two problems:
+* They cannot be used to identify regressions because they only represents part of renderer memory usage.
   * In the wild, totalJSHeapSize typically ranges from 25-40% of renderer memory
 usage.
-  * It does not include DOM memory [Oilpan, PartitionAlloc], canvas backing stores,
+  * They does not include DOM memory [Oilpan, PartitionAlloc], canvas backing stores,
 decoded images/videos, etc.
-  * It is possible for developers to improve totalJSHeapSize by shifting memory into
+  * It is possible for developers to improve both usedJSHeapSize and totalJSHeapSize by shifting memory into
 other allocators.
 * It is non-intuitive because it only includes part of the memory developers
 typically associate with JS.
-  * Large ArrayBuffers are not included in totalJSHeapSize, since they are backed by
+  * Large ArrayBuffers are not included in usedJSHeapSize and totalJSHeapSize, since they are backed by
 PartitionAlloc.
-  * External strings are not included in totalJSHeapSize
+  * External strings are not included in usedJSHeapSize and totalJSHeapSize
 
 # Use cases
 
@@ -60,7 +60,7 @@ see if the new version of the site regresses the metric.
     probability that there is an unintentional memory-related coding error.
   * With high probability, memory-related coding errors should cause regression
     in the aggregate metric.
-  * The totalJSHeapSize sub-metric provides some insight into the possible
+  * The usedJSHeapSize and totalJSHeapSize sub-metrics provides some insight into the possible
     source of bloat.
 * Accurate or null
   * If accurate metrics cannot be obtained, return null.
@@ -69,7 +69,7 @@ see if the new version of the site regresses the metric.
 # Proposed API
 
 TODO: clean up the API.
-TODO: Should we still expose jsHeapSizeLImit and usedJSHeapSize (?)
+TODO: Should we still expose jsHeapSizeLimit(?)
 
 ```
 // A read-only property
@@ -86,7 +86,7 @@ dictionary {
 
 # Implementation
 
-For both **privateMemoryFootprint** and **totalJSHeapSize**, we only have
+For **privateMemoryFootprint**, **totalJSHeapSize**, and **usedJSHeapSize** we only have
 accurate accounting when the process is hosting a single top level frame. As
 such, we return null anytime the process is hosting more than a single top level
 frame.
@@ -95,15 +95,17 @@ We define **privateMemoryFootprint** as non-reusable, private, anonymous,
 resident/swapped/compressed memory. See [Appendix A](#appendix-a) for
 definitions of these terms.
 
-**totalJSHeapSize** reflects memory used by the JS implementation, including
-objects, functions, closures, array buffers, etc. It does not include memory
+**usedJSHeapSize** reflects the accumulative size of objects memory used by the JS implementation, including
+objects, functions, closures, array buffers, etc. It does not include memory of objects
 used by the DOM, the browser vendor's internal data structures, and memory used
 by graphics/audio libraries.
 
-## Rationale
+**totalJSHeapSize** reflects memory used by the JS implementation heap to store JS objects. This includes
+objects, functions, closures, array buffers, etc. and free memory (fragmentation) in between these objects that cannot
+be used for anything else than other JS objects. It does not include memory used by the DOM, the browser vendor's internal data structures, and memory used
+by graphics/audio libraries.
 
-TODO(hpayer): do we need to need to add custom accounting for shared array buffers w.r.t. shared
-memory?
+## Rationale
 
 * **non-reusable**: On macOS, the [implementation of
   libMalloc](https://opensource.apple.com/source/libmalloc/libmalloc-140.40.1/src/nano_malloc.c.auto.html)
