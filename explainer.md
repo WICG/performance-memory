@@ -73,7 +73,7 @@ see if the new version of the site regresses the metric.
 
 ```
 partial interface Performance {
-  [SameObject, Measure] readonly attribute MemoryInfo memory;
+  [SameObject] readonly attribute MemoryInfo memory;
 }
 
 // All values will be |null| if there are multiple top-level frames being hosted
