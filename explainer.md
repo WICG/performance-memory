@@ -75,21 +75,20 @@ see if the new version of the site regresses the metric.
 // A read-only property named |memory| on the Performance object.
 window.performance.memory
 
-// Contains a dictionary of memory metrics.
 // All values will be |null| if there are multiple top-level frames being hosted
 // by the same process. Once site-isolation is enabled, this will never be the
 // case.
-dictionary {
+interface MemoryInfo {
   // All private memory being used by the process hosting the site.
-  privateMemoryFootprint: 12341234,
+  readonly attribute unsigned long? privateMemoryFootprint;
 
   // Sum of size of all JS-related entities in the process hosting the site.
   // Includes objects, functions, closures, array buffers, etc.
-  usedJSHeapSize: 42930044
+  readonly attribute unsigned long? usedJSHeapSize;
 
   // All memory used by the JS heap in the process hosting the site.
   // Includes everything from usedJSHeapSize, and also fragmentation.
-  totalJSHeapSize: 58054528,
+  readonly attribute unsigned long? totalJSHeapSize;
 }
 ```
 
