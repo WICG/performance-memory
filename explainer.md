@@ -72,8 +72,9 @@ see if the new version of the site regresses the metric.
 
 
 ```
-// A read-only property named |memory| on the Performance object.
-window.performance.memory
+partial interface Performance {
+  [SameObject, Measure] readonly attribute MemoryInfo memory;
+}
 
 // All values will be |null| if there are multiple top-level frames being hosted
 // by the same process. Once site-isolation is enabled, this will never be the
