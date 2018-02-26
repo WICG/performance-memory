@@ -24,20 +24,8 @@ Some developers wish to reduce the memory footprint of their site, or at least
 prevent it from getting worse. There is currently no API to measure the memory
 footprint, thus making this task very difficult.
 
-The current implementation of performance.memory in Chrome exposes
-usedJSHeapSize and totalJSHeapSize. These metrics have two problems:
-* They cannot be used to identify regressions because they only represents part of renderer memory usage.
-  * In the wild, totalJSHeapSize typically ranges from 25-40% of renderer memory
-usage.
-  * They does not include DOM memory [Oilpan, PartitionAlloc], canvas backing stores,
-decoded images/videos, etc.
-  * It is possible for developers to improve both usedJSHeapSize and totalJSHeapSize by shifting memory into
-other allocators.
-* It is non-intuitive because it only includes part of the memory developers
-typically associate with JS.
-  * Large ArrayBuffers are not included in usedJSHeapSize and totalJSHeapSize, since they are backed by
-PartitionAlloc.
-  * External strings are not included in usedJSHeapSize and totalJSHeapSize
+See [Appendix D](#appendix-d) for a description of Chrome's current
+implementation of performance.memory, and why it does not solve the problem.
 
 Moreover performance.memory in Chrome exposes jsHeapSizeLimit which is an JavaScript engine specific
 heuristic which may not exisit in other JavaScript engines. Therefore, we propose to remove this metric.
@@ -55,7 +43,7 @@ see if the new version of the site regresses the metric.
 * Minimal/no overhead when the API is not used.
 * Comprehensive
   * Should account for all memory allocated on behalf of the web page, including
-    memory required by the browser vendor internal structures.
+    memory required by the browser's internal structures.
 * Actionable
   * When used as a signal in aggregate, there should be low false positives and
     low false negatives.
@@ -63,34 +51,44 @@ see if the new version of the site regresses the metric.
     probability that there is an unintentional memory-related coding error.
   * With high probability, memory-related coding errors should cause regression
     in the aggregate metric.
-  * The usedJSHeapSize and totalJSHeapSize sub-metrics provides some insight into the possible
-    source of bloat.
+  * The usedJSHeapSize and totalJSHeapSize sub-metrics provides some insight
+    into the possible source of bloat.
 * Accurate or null
-  * If accurate metrics cannot be obtained, return null.
+  * If accurate metrics cannot be obtained, return null. This is better than
+    returning inaccurate numbers. See [Appendix C](#appendix-c) for more
+    details.
 * Definition consistent on all [supported platforms](#supported-platforms).
 
 # Proposed API
 
-TODO: clean up the API.
-
 ```
-// A read-only property
-window.performance.memory
+partial interface Performance {
+  [SameObject] readonly attribute MemoryInfo memory;
+}
 
-// Returns
-dictionary {
-  privateMemoryFootprint: 12341234,
-  totalJSHeapSize: 58054528,
-  usedJSHeapSize: 42930044
+// All values will be |null| if there are multiple top-level frames being hosted
+// by the same process. Once site-isolation is enabled, this will never be the
+// case.
+interface MemoryInfo {
+  // All private memory being used by the process hosting the site.
+  readonly attribute unsigned long? privateMemoryFootprint;
+
+  // Sum of size of all JS-related entities in the process hosting the site.
+  // Includes objects, functions, closures, array buffers, etc.
+  readonly attribute unsigned long? usedJSHeapSize;
+
+  // All memory used by the JS heap in the process hosting the site.
+  // Includes everything from usedJSHeapSize, and also fragmentation.
+  readonly attribute unsigned long? totalJSHeapSize;
 }
 ```
 
-# Implementation
+# Proposed Implementation Outline
 
-For **privateMemoryFootprint**, **totalJSHeapSize**, and **usedJSHeapSize** we only have
-accurate accounting when the process is hosting a single top level frame. As
-such, we return null anytime the process is hosting more than a single top level
-frame.
+For **privateMemoryFootprint**, **totalJSHeapSize**, and **usedJSHeapSize** we
+only have accurate accounting when the process is hosting a single top level
+frame. As such, we return null anytime the process is hosting more than a single
+top level frame.
 
 For **totalJSHeapSize** and **usedJSHeapSize** we return the memory that corresponds to the execution context
 (main thread or worker) where the call is performed.
@@ -151,11 +149,14 @@ def GetPrivateMemoryFootprint:
       return status.RssAnon + status.VmSwap
 
 def GetAnonymousResidentSharedMemory:
-  <Requires browser-vendor specific accounting for resident, shared memory
-  regions>.
+  <Requires the browser vendor to internally account for anonymous, resident,
+  shared memory regions on macOS>.
 
 def GetTotalJSHeapSize:
-  TODO
+  <Requires the browser vendor to internally account for JS heap usage>
+
+def GetUsedJSHeapSize:
+  <Requires the browser vendor to internally account for JS heap usage>
 ```
 
 ## Drawbacks
@@ -177,7 +178,8 @@ counters.
   be resident, but not faulted.
 * On macOS, phys_footprint is similar to internal + compressed, but also
   includes IOKit memory. While the memory is technically shared rather than
-  private, functionally it behaves more similar to private memory.
+  private, functionally it behaves similarly to private memory. Thus, counting
+  it as part of privateMemoryFootprint seems appropriate.
 
 # <a name="appendix-a"></a>Appendix A - Terminology
 
@@ -219,7 +221,7 @@ on a per-platform basis, and use terminology specific to that platform.
   child is given a private copy of the page.
 * **Shared** - A virtual page whose contents could be shared with other
   processes.
-* ** File-backed ** - A virtual page whose contents reflect those of a
+* **File-backed** - A virtual page whose contents reflect those of a
   file.
 * **Anonymous** - A virtual page that is not file-backed.
 
@@ -262,14 +264,28 @@ renderer and the browser process. Both of these are Chrome-specific
 optimizations, context-dependent, and pretty much entirely outside of the
 control of developers.
 
-# Appendix C - Examples of memory problems
+# <a name="appendix-c"></a> Appendix C - Time-Delay, Bucketing, Site-Isolation
 
-## Memory problems that the proposed API would help solve.
-TODO: More specific examples.
-* event-listener Retain cycle
-* Leaking Canvas.
+The current implementation of performance.memory in Chrome applies quantization
+and bucketing to the returned numbers. There is a [blink intent to
+implement](https://groups.google.com/a/chromium.org/forum/#!topic/blink-dev/no00RdMnGio)
+which desribes updating performance.memory to return null if there are multiple
+top level frames being hosted in a process. If the site is isolated, then the
+time-delay and bucketing are removed.
 
-## Memory problems that the proposed API would not help solve.
-TODO: Do we need this?
-* Wired memory leak
-* Intel driver leak
+# <a name="appendix-d"></a> Appendix D - Chrome's Previous Implementation of performance.memory
+
+The current implementation of performance.memory in Chrome exposes
+usedJSHeapSize and totalJSHeapSize. These metrics have two problems:
+* They cannot be used to identify regressions because they only represents part of renderer memory usage.
+  * In the wild, totalJSHeapSize typically ranges from 25-40% of renderer memory
+usage.
+  * They does not include DOM memory [Oilpan, PartitionAlloc], canvas backing stores,
+decoded images/videos, etc.
+  * It is possible for developers to improve both usedJSHeapSize and totalJSHeapSize by shifting memory into
+other allocators.
+* It is non-intuitive because it only includes part of the memory developers
+typically associate with JS.
+  * Large ArrayBuffers are not included in usedJSHeapSize and totalJSHeapSize,
+    since they are backed by PartitionAlloc.
+  * External strings are not included in usedJSHeapSize and totalJSHeapSize
