@@ -27,9 +27,6 @@ footprint, thus making this task very difficult.
 See [Appendix D](#appendix-d) for a description of Chrome's current
 implementation of performance.memory, and why it does not solve the problem.
 
-Moreover performance.memory in Chrome exposes jsHeapSizeLimit which is an JavaScript engine specific
-heuristic which may not exisit in other JavaScript engines. Therefore, we propose to remove this metric.
-
 # Use cases
 
 Developers can collect the metric in aggregate, and perform staged rollouts to
@@ -289,3 +286,6 @@ typically associate with JS.
   * Large ArrayBuffers are not included in usedJSHeapSize and totalJSHeapSize,
     since they are backed by PartitionAlloc.
   * External strings are not included in usedJSHeapSize and totalJSHeapSize
+  
+Moreover performance.memory in Chrome exposes jsHeapSizeLimit which is an JavaScript engine specific
+heuristic which may not exisit in other JavaScript engines. Therefore, we propose to remove this metric.
