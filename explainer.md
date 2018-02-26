@@ -87,9 +87,6 @@ only have accurate accounting when the process is hosting a single top level
 frame. As such, we return null anytime the process is hosting more than a single
 top level frame.
 
-For **totalJSHeapSize** and **usedJSHeapSize** we return the memory that corresponds to the execution context
-(main thread or worker) where the call is performed.
-
 We define **privateMemoryFootprint** as non-reusable, private, anonymous,
 resident/swapped/compressed memory. See [Appendix A](#appendix-a) for
 definitions of these terms.
@@ -104,6 +101,9 @@ execution context (main thread or worker). This includes objects, functions, clo
 and free memory (fragmentation) in between these objects that cannot be used for anything else than other
 JS objects. It does not include memory used by the DOM, the browser vendor's internal data structures, and
 memory used by graphics/audio libraries. Note that totalJSHeapSize will always be larger or equal than usedJSHeapSize.
+
+Both **totalJSHeapSize** and **usedJSHeapSize** correspond to the execution context ((main thread or worker)
+where the call is performed.
 
 ## Rationale
 
