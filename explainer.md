@@ -58,7 +58,6 @@ see if the new version of the site regresses the metric.
 
 # Proposed API
 
-
 ```
 partial interface Performance {
   [SameObject] readonly attribute MemoryInfo memory;
@@ -92,17 +91,19 @@ We define **privateMemoryFootprint** as non-reusable, private, anonymous,
 resident/swapped/compressed memory. See [Appendix A](#appendix-a) for
 definitions of these terms.
 
-**usedJSHeapSize** reflects the accumulative size of objects memory used by the
-JS implementation, including objects, functions, closures, array buffers, etc.
-It does not include memory of objects used by the DOM, the browser vendor's
-internal data structures, and memory used by graphics/audio libraries.
+**usedJSHeapSize** reflects the accumulative size of objects memory used by the JS implementation for a given
+execution context (main thread or worker), including objects, functions, closures, array buffers, etc. It does
+not include memory of objects used by the DOM, the browser vendor's internal data structures, and memory used
+by graphics/audio libraries.
 
-**totalJSHeapSize** reflects memory used by the JS implementation heap to store
-JS objects. This includes objects, functions, closures, array buffers, etc. and
-free memory (fragmentation) in between these objects that cannot be used for
-anything else than other JS objects. It does not include memory used by the DOM,
-the browser vendor's internal data structures, and memory used by graphics/audio
-libraries.
+**totalJSHeapSize** reflects memory used by the JS implementation heap to store JS objects for a given
+execution context (main thread or worker). This includes objects, functions, closures, array buffers, etc.
+and free memory (fragmentation) in between these objects that cannot be used for anything else than other
+JS objects. It does not include memory used by the DOM, the browser vendor's internal data structures, and
+memory used by graphics/audio libraries. Note that totalJSHeapSize will always be larger or equal than usedJSHeapSize.
+
+Both **totalJSHeapSize** and **usedJSHeapSize** correspond to the execution context (main thread or worker)
+where the call is performed.
 
 ## Rationale
 
@@ -285,3 +286,6 @@ typically associate with JS.
   * Large ArrayBuffers are not included in usedJSHeapSize and totalJSHeapSize,
     since they are backed by PartitionAlloc.
   * External strings are not included in usedJSHeapSize and totalJSHeapSize
+  
+Moreover performance.memory in Chrome exposes jsHeapSizeLimit which is an JavaScript engine specific
+heuristic which may not exisit in other JavaScript engines. Therefore, we propose to remove this metric.
