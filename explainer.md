@@ -102,7 +102,7 @@ and free memory (fragmentation) in between these objects that cannot be used for
 JS objects. It does not include memory used by the DOM, the browser vendor's internal data structures, and
 memory used by graphics/audio libraries. Note that totalJSHeapSize will always be larger or equal than usedJSHeapSize.
 
-Both **totalJSHeapSize** and **usedJSHeapSize** correspond to the execution context ((main thread or worker)
+Both **totalJSHeapSize** and **usedJSHeapSize** correspond to the execution context (main thread or worker)
 where the call is performed.
 
 ## Rationale
