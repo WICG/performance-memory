@@ -39,6 +39,9 @@ typically associate with JS.
 PartitionAlloc.
   * External strings are not included in usedJSHeapSize and totalJSHeapSize
 
+Moreover performance.memory in Chrome exposes jsHeapSizeLimit which is an JavaScript engine specific
+heuristic which may not exisit in other JavaScript engines. Therefore, we propose to remove this metric.
+
 # Use cases
 
 Developers can collect the metric in aggregate, and perform staged rollouts to
@@ -69,7 +72,6 @@ see if the new version of the site regresses the metric.
 # Proposed API
 
 TODO: clean up the API.
-TODO: Should we still expose jsHeapSizeLimit(?)
 
 ```
 // A read-only property
@@ -78,7 +80,6 @@ window.performance.memory
 // Returns
 dictionary {
   privateMemoryFootprint: 12341234,
-  jsHeapSizeLimit: 767557632,
   totalJSHeapSize: 58054528,
   usedJSHeapSize: 42930044
 }
@@ -91,19 +92,23 @@ accurate accounting when the process is hosting a single top level frame. As
 such, we return null anytime the process is hosting more than a single top level
 frame.
 
+For **totalJSHeapSize** and **usedJSHeapSize** we return the memory that corresponds to the execution context
+(main thread or worker) where the call is performed.
+
 We define **privateMemoryFootprint** as non-reusable, private, anonymous,
 resident/swapped/compressed memory. See [Appendix A](#appendix-a) for
 definitions of these terms.
 
-**usedJSHeapSize** reflects the accumulative size of objects memory used by the JS implementation, including
-objects, functions, closures, array buffers, etc. It does not include memory of objects
-used by the DOM, the browser vendor's internal data structures, and memory used
+**usedJSHeapSize** reflects the accumulative size of objects memory used by the JS implementation for a given
+execution context (main thread or worker), including objects, functions, closures, array buffers, etc. It does
+not include memory of objects used by the DOM, the browser vendor's internal data structures, and memory used
 by graphics/audio libraries.
 
-**totalJSHeapSize** reflects memory used by the JS implementation heap to store JS objects. This includes
-objects, functions, closures, array buffers, etc. and free memory (fragmentation) in between these objects that cannot
-be used for anything else than other JS objects. It does not include memory used by the DOM, the browser vendor's internal data structures, and memory used
-by graphics/audio libraries.
+**totalJSHeapSize** reflects memory used by the JS implementation heap to store JS objects for a given
+execution context (main thread or worker). This includes objects, functions, closures, array buffers, etc.
+and free memory (fragmentation) in between these objects that cannot be used for anything else than other
+JS objects. It does not include memory used by the DOM, the browser vendor's internal data structures, and
+memory used by graphics/audio libraries. Note that totalJSHeapSize will always be larger or equal than usedJSHeapSize.
 
 ## Rationale
 
