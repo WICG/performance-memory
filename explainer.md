@@ -284,7 +284,7 @@ typically associate with JS.
 Moreover performance.memory in Chrome exposes jsHeapSizeLimit which is an JavaScript engine specific
 heuristic which may not exisit in other JavaScript engines.
 
-# <a name="appendix-d"></a> Appendix D - Examples
+# <a name="appendix-d"></a> Appendix D - Frame Tree Examples
 
 Note: All examples assume site isolation - frames from different origins are
 always hosted in different processes.
@@ -307,3 +307,11 @@ always hosted in different processes.
   * When either *frame 1* or *frame 2* call performance.memory,
     numberOfFrameTrees is *1* and memory numbers reflect the sum of memory used
     by both *frame 1* and *frame 2*, but NOT *frame 3*.
+
+# Appendix E - Possible Future Extensions
+
+It would be helpful to provide web developers more categories of memory usage,
+to help narrow down sources of regressions. Potential categories include HTML
+nodes, CSS, Canvas, audio/video, etc. While Chrome does have some internal
+accounting for this, coming up with consistent cross-browser definitions seems
+difficult.
