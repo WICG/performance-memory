@@ -59,9 +59,8 @@ partial interface Performance {
   [SameObject] readonly attribute MemoryInfo memory;
 }
 
-// All values will be |null| if frames from different origins are being hosted
-// by the same process. Once site-isolation is enabled, this will never be the
-// case.
+// If the process hosting the current frame has ever hosted frames from a
+// different origin, all values will be |null|.
 interface MemoryInfo {
   // All private memory being used by the process hosting the site.
   readonly attribute unsigned long? privateMemoryFootprint;
