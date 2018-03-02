@@ -59,8 +59,11 @@ partial interface Performance {
   [SameObject] readonly attribute MemoryInfo memory;
 }
 
-// If the process hosting the current frame has ever hosted frames from a
-// different origin, all values will be |null|.
+// Any or all of these values may be |null| if:
+//  - The browser is unable to provide accurate information due to
+//    implementation limitations.
+//  - Exposing the information could leak information across frames from
+//    different origins.
 interface MemoryInfo {
   // All private memory being used by the process hosting the site.
   readonly attribute unsigned long? privateMemoryFootprint;
@@ -176,6 +179,12 @@ counters.
   includes IOKit memory. While the memory is technically shared rather than
   private, functionally it behaves similarly to private memory. Thus, counting
   it as part of privateMemoryFootprint seems appropriate.
+
+## Privacy
+
+This document suggests returning |null| for all the fields in performance.memory
+if the process hosting the current frame has ever hosted frames from a different
+origin.
 
 # <a name="appendix-a"></a>Appendix A - Terminology
 
