@@ -290,7 +290,7 @@ hosted by the process.
 Note: All examples assume frames from different origins are always hosted in
 different processes.
 
-* Example 1: User opens two tabs to <Origin A>, a simple site with a single
+* Example 1: User opens two tabs to \<Origin A\>, a simple site with a single
   frame.
   * More common case: Browser hosts the two frames in different processes.
     numberOfTabs is *1* for both sites, and the metrics will be accurate.
@@ -298,16 +298,16 @@ different processes.
     numberOfTabs is *2* for both sites, and the metrics will be
     inaccurate.
     * Dividing by 2 will not always do the right thing! See next example.
-* Example 2: User opens tab to <Origin A> [call this *frame 1*], which
-  window.opens() a new tab to <Origin B>. <Origin B> includes a subframe from
-  <Origin A> [call this *frame 2*].
+* Example 2: User opens tab to \<Origin A\> [call this *frame 1*], which
+  window.opens() a new tab to \<Origin B\>. \<Origin B\> includes a subframe from
+  \<Origin A\> [call this *frame 2*].
   * *frame 1* and *frame 2* will be hosted in the same process.
     numberOfTabs is *2* when either frame calls performance.memory.
   * If *frame 2* has a memory footprint that is ten times that of *frame 1*,
     then naively dividing the memory footprint by 2 will overcount the memory
     footprint of *frame 1*, and undercount the footprint of *frame 2*.
-* Example 3: User opens tab to <Origin A> [call this *frame 1*]. *frame 1*
-  has two subframes, *frame 2* <Origin A> and *frame 3* <Origin B>.
+* Example 3: User opens tab to \<Origin A\> [call this *frame 1*]. *frame 1*
+  has two subframes, *frame 2* \<Origin A\> and *frame 3* \<Origin B\>.
   * When either *frame 1* or *frame 2* call performance.memory,
     numberOfTabs is *1* and memory numbers reflect the sum of memory used
     by both *frame 1* and *frame 2*, but NOT *frame 3*.
