@@ -86,6 +86,9 @@ interface MemoryInfo {
   //
   // See [Appendix D](#appendix-d) for a more detailed explanation and examples.
   readonly attributed unsigned long? numberOfTabs;
+
+  // The number of web or service workers being hosted in the process.
+  readonly attributed unsigned long? numberOfWorkers;
 }
 ```
 
