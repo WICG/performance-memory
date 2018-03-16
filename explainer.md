@@ -48,8 +48,6 @@ see if the new version of the site regresses the metric.
     probability that there is an unintentional memory-related coding error.
   * With high probability, memory-related coding errors should cause regression
     in the aggregate metric.
-  * The usedJSHeapSize and totalJSHeapSize sub-metrics provides some insight
-    into the possible source of bloat.
 * Definition consistent on all [supported platforms](#supported-platforms).
 
 # Proposed API
@@ -68,14 +66,6 @@ interface MemoryInfo {
   // All private memory being used by the process hosting the site.
   readonly attribute unsigned long? privateMemoryFootprint;
 
-  // Sum of size of all JS-related entities in the process hosting the site.
-  // Includes objects, functions, closures, array buffers, etc.
-  readonly attribute unsigned long? usedJSHeapSize;
-
-  // All memory used by the JS heap in the process hosting the site.
-  // Includes everything from usedJSHeapSize, and also fragmentation.
-  readonly attribute unsigned long? totalJSHeapSize;
-
   // IMPORTANT: When this number is greater than 1, all metrics over count by an
   // undefined amount. It's recommended for most developers to simply ignore the
   // results of performance.memory in this case.
@@ -92,27 +82,13 @@ interface MemoryInfo {
 }
 ```
 
-# Proposed Implementation Outline
+# Proposed Implementation
+
+## Outline
 
 We define **privateMemoryFootprint** as non-reusable, private, anonymous,
 resident/swapped/compressed memory. See [Appendix A](#appendix-a) for
 definitions of these terms.
-
-**usedJSHeapSize** reflects the accumulative size of objects memory used by the JS implementation for a given
-execution context (main thread or worker), including objects, functions, closures, array buffers, etc. It does
-not include memory of objects used by the DOM, the browser vendor's internal data structures, and memory used
-by graphics/audio libraries.
-
-**totalJSHeapSize** reflects memory used by the JS implementation heap to store JS objects for a given
-execution context (main thread or worker). This includes objects, functions, closures, array buffers, etc.
-and free memory (fragmentation) in between these objects that cannot be used for anything else than other
-JS objects. It does not include memory used by the DOM, the browser vendor's internal data structures, and
-memory used by graphics/audio libraries. Note that totalJSHeapSize will always be larger or equal than usedJSHeapSize.
-
-Both **totalJSHeapSize** and **usedJSHeapSize** correspond to the execution context (main thread or worker)
-where the call is performed.
-
-## Rationale
 
 * **non-reusable**: On macOS, the [implementation of
   libMalloc](https://opensource.apple.com/source/libmalloc/libmalloc-140.40.1/src/nano_malloc.c.auto.html)
@@ -153,12 +129,6 @@ def GetPrivateMemoryFootprint:
 def GetAnonymousResidentSharedMemory:
   <Requires the browser vendor to internally account for anonymous, resident,
   shared memory regions on macOS>.
-
-def GetTotalJSHeapSize:
-  <Requires the browser vendor to internally account for JS heap usage>
-
-def GetUsedJSHeapSize:
-  <Requires the browser vendor to internally account for JS heap usage>
 ```
 
 ## Drawbacks
@@ -187,6 +157,17 @@ counters.
 
 This document suggests returning |null| for all the fields in performance.memory
 if the process hosting the current frame has ever hosted frames from a different
+origin.
+
+Even with this caveat, the API still introduces a secondary information channel
+for websites - namely, the number of different tabs hosting content in the
+process. If we make the assumption that all frames from a single origin are
+hosted in the same process, then the following example [courtesy of Boris
+Zbarsky] leaks information across origins.
+
+Say a page does: ```<a href="https://other-origin.html" rel="noopener">Click
+me</a>```. If the user clicks on the link, then this API allows the original
+origin to determine whether other-origin loads any subframes from the original
 origin.
 
 # <a name="appendix-a"></a>Appendix A - Terminology
@@ -326,7 +307,7 @@ different processes.
 # Appendix E - Possible Future Extensions
 
 It would be helpful to provide web developers more categories of memory usage,
-to help narrow down sources of regressions. Potential categories include HTML
-nodes, CSS, Canvas, audio/video, etc. While Chrome does have some internal
-accounting for this, coming up with consistent cross-browser definitions seems
-difficult.
+to help narrow down sources of regressions. Potential categories include JS
+memory usage, DOM nodes, CSS, Canvas, audio/video, etc. While Chrome does have
+some internal accounting for this, coming up with consistent, low-overhead,
+cross-browser definitions seems difficult.
