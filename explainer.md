@@ -310,4 +310,6 @@ It would be helpful to provide web developers more categories of memory usage,
 to help narrow down sources of regressions. Potential categories include JS
 memory usage, DOM nodes, CSS, Canvas, audio/video, etc. While Chrome does have
 some internal accounting for this, coming up with consistent, low-overhead,
-cross-browser definitions seems difficult.
+cross-browser definitions seems difficult. We may wish to consider adding an
+"implementation profiling hints" dictionary which vendors can use to expose
+vendor-specific measurements.
