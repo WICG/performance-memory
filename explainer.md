@@ -57,7 +57,7 @@ partial interface Performance {
   [SameObject] readonly attribute MemoryInfo memory;
 }
 
-// Any or all of these values may be |null| if:
+// All of these values may be |null| if:
 //  - The browser is unable to provide accurate information due to
 //    implementation limitations.
 //  - Exposing the information could leak information across frames from
