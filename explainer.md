@@ -170,6 +170,13 @@ me</a>```. If the user clicks on the link, then this API allows the original
 origin to determine whether other-origin loads any subframes from the original
 origin.
 
+## Security
+
+In addition to side-channel attacks like Spectre, various attacks (such as those
+looking to exploit a use-after-free) often benefit from inducing a GC sweep or
+knowing when a GC sweep is going to happen. As such, this proposal intentionally
+avoids exposing any GC timing information.
+
 # <a name="appendix-a"></a>Appendix A - Terminology
 
 Each platform exposes a different memory model. This section describes a
