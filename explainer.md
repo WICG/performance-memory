@@ -2,8 +2,8 @@
 
 ## Goals
 
-* Enable memory usage comparison between two versions of an application running
-  in substantially identical environments.
+* Provide developers a mechanism to identify releases of their site that regress
+  memory usage.
 
 ## Non-Goals
 
@@ -17,6 +17,9 @@
     have no desire to expose.
   * There is no simple API that can expose all relevant information for
     debugging memory issues.
+* Provide a mechanism to compare memory usage between browser vendors.
+  * The metrics in this API are implementation and context dependent.
+    This invalidates comparisons between browser vendors.
 
 # Problem statement
 
@@ -30,10 +33,11 @@ implementation of performance.memory, and why it does not solve the problem.
 # Use cases
 
 Developers can collect the metric in aggregate, and perform staged rollouts to
-see if the new version of the site regresses the metric. To ensure that
-comparisons are being made in similar environments, we recommend that developers
-aggregate the data across environments where the following properties are
-identical:
+see if the new version of the site regresses the metric.
+
+To ensure that comparisons are being made in similar environments, we recommend
+that developers aggregate the data across environments where the following
+properties are identical:
 
 * navigator.userAgent
 
