@@ -2,8 +2,8 @@
 
 ## Goals
 
-* Provide developers an intuitive memory metric that can be used to identify
-  releases that unintentionally increase memory footprint.
+* Enable memory usage comparison between two versions of an application running
+  in substantially identical environments.
 
 ## Non-Goals
 
@@ -30,7 +30,12 @@ implementation of performance.memory, and why it does not solve the problem.
 # Use cases
 
 Developers can collect the metric in aggregate, and perform staged rollouts to
-see if the new version of the site regresses the metric.
+see if the new version of the site regresses the metric. To ensure that
+comparisons are being made in similar environments, we recommend that developers
+aggregate the data across environments where the following properties are
+identical:
+
+* navigator.userAgent
 
 # Requirements
 
