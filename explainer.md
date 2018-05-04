@@ -27,10 +27,10 @@ Some developers wish to reduce the memory footprint of their site, or at least
 prevent it from getting worse. There is currently no API to measure the memory
 footprint, thus making this task very difficult.
 
-See [Appendix B](#appendix-b) for a description of Chrome's current
+See [Appendix A](#appendix-a) for a description of Chrome's current
 implementation of performance.memory, and why it does not solve the problem.
 
-See [Appendix C](#appendix-c) for a list of problems found in real websites that
+See [Appendix B](#appendix-b) for a list of problems found in real websites that
 potentially could have been caught by this API.
 
 # Use cases
@@ -50,8 +50,7 @@ properties are identical:
 callback MemoryEstimateCallback = void (long? memoryEstimate);
 
 partial interface Performance {
-  // This callback provides an estimate of the memory footprint of the site, not
-  // including memory associated with cross-origin iframes.
+  // This callback provides an estimate of the memory footprint of the site.
 
   // Memory estimate is only useful when collected in aggregate across a staged
   // rollout of a website. Comparing the distributions between old and new
@@ -102,7 +101,7 @@ Examples of memory whose inclusion is unclear:
 * Memory needed to host third-party JS libraries used by the site.
   * Excluding this would be difficult for browser vendors to implement.
 * Memory needed to host iframes used by the site.
-* Shared memory. See [Appendix A](#appendix-a)
+* Shared memory. See [Appendix C](#appendix-c)
 
 ### Context free
 
@@ -118,8 +117,7 @@ control of the web developer. For example, memory estimate should not reflect:
   time.
   * madvise (Linux variants + macOS), ashmem (Android), VirtualAllocEx (Windows)
     are examples of APIs that can be used to lazily free memory. Exact semantics
-    are dependent on the operating system. Browser vendors are advised to tread
-    with caution.
+    are dependent on the operating system.
 * File-backed memory.
   * Similar to reusable/discardable memory, operating systems will clean and
     discard pages from file-backed memory under memory pressure.
@@ -167,9 +165,6 @@ inadvertently exposed by the API.
 This specification recommends [but does not require]:
 * Quantizing measurements in the time domain with a threshold of at least 30
   seconds.
-  * By only returning new measurements every 30 seconds, this restricts
-    information available to the attacker down to: There was a GC sweep in the
-    last thirty seconds.
 * Adding normalized noise to each measurement.
   * Since the API is intended to be used in aggregate, the normalized noise will
     not affect the mean of the distribution, but will greatly reduce precision
@@ -189,26 +184,7 @@ additional information about the user.
     itself includes an iframe from (origin A).
 
 The privacy implications of these data points will be dependent on the
-implementation of the API. Browser vendors are recommended to perform their own
-analysis.
-
-# <a name="appendix-a"></a> Appendix A - Shared Memory
-
-The semantics of accounting for shared memory is poorly defined. If a memory
-region is mapped into multiple processes [possibly multiple times], and is being
-used by multiple sites, which ones should it count towards?
-
-On Linux, one common solution is to use proportional set size, which counts
-1/Nth of the resident size, where N is the number of other mappings of the
-region. This has the nice property of being additive across processes. The
-downside is that it is context dependent. e.g. If a user opens more tabs, thus
-causing a system library to be mapped into more processes, the PSS for previous
-tabs will go down.
-
-This specification recommends that all shared memory be attributed a single
-owner. It should count with its full weight in any memory estimates for that
-owner, and count as nothing for all other memory estimates. This retains the
-additive property, while still remaining context free.
+implementation of the API. Browser vendors should perform their own analysis.
 
 # <a name="appendix-b"></a> Appendix B - Chrome's Previous Implementation of performance.memory
 
@@ -221,15 +197,9 @@ usage.
 decoded images/videos, etc.
   * It is possible for developers to improve both usedJSHeapSize and totalJSHeapSize by shifting memory into
 other allocators.
-* It is non-intuitive because it only includes part of the memory developers
-typically associate with JS.
-  * Large ArrayBuffers are not included in usedJSHeapSize and totalJSHeapSize,
-    since they are backed by PartitionAlloc.
-  * External strings are not included in usedJSHeapSize and totalJSHeapSize
-* The numbers are quantized into buckets and time-delayed.
-
-Moreover performance.memory in Chrome exposes jsHeapSizeLimit which is an JavaScript engine specific
-heuristic which may not exisit in other JavaScript engines.
+* The numbers are quantized into 5MB buckets. This does not provide developers
+  enough granularity to determine releases that regress memory.
+  * See feedback from [Facebook](https://github.com/WICG/performance-memory/issues/7) and [GSuite and Gmail](https://github.com/WICG/performance-memory/issues/8).
 
 # <a name="appendix-c"></a> Appendix C - Problems Affecting Real Websites
 
@@ -250,6 +220,24 @@ introduced the issues. The issues ranged in size from a couple of MB to 1GB+.
 * A site was creating at startup a large array buffer that would usually remain
   untouched for the duration of the session [rarely used feature].
 * A site was unnecessarily creating hundreds of Canvas2D elements.
+
+# <a name="appendix-c"></a> Appendix C - Shared Memory
+
+The semantics of accounting for shared memory are poorly defined. If a memory
+region is mapped into multiple processes [possibly multiple times], and is being
+used by multiple sites, which ones should it count towards?
+
+On Linux, one common solution is to use proportional set size, which counts
+1/Nth of the resident size, where N is the number of other mappings of the
+region. This has the nice property of being additive across processes. The
+downside is that it is context dependent. e.g. If a user opens more tabs, thus
+causing a system library to be mapped into more processes, the PSS for previous
+tabs will go down.
+
+This specification recommends that all shared memory be attributed a single
+owner. It should count with its full weight in any memory estimates for that
+owner, and count as nothing for all other memory estimates. This retains the
+additive property, while still remaining context free.
 
 # Appendix D - Possible Future Extensions
 
