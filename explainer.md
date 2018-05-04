@@ -10,11 +10,11 @@
 * Provide an incentive for developers to reduce memory footprint.
 * Provide a mechanism to evalute tradeoffs between memory footprint and performance
   [e.g. caching]
-* Provide per-frame accounting for memory footprint.
+* Provide per-iframe accounting for memory footprint.
 * Provide a mechanism to perform in-depth memory footprint evaluations on a
   single running instance of a web page.
   * Memory footprint is dependent on garbage collection (GC) timings, which we
-    have no desire to expose.
+    do not wish to expose.
   * There is no simple API that can expose all relevant information for
     debugging memory issues.
 * Provide a mechanism to compare memory usage between browser vendors.
@@ -27,8 +27,11 @@ Some developers wish to reduce the memory footprint of their site, or at least
 prevent it from getting worse. There is currently no API to measure the memory
 footprint, thus making this task very difficult.
 
-See [Appendix C](#appendix-c) for a description of Chrome's current
+See [Appendix B](#appendix-b) for a description of Chrome's current
 implementation of performance.memory, and why it does not solve the problem.
+
+See [Appendix C](#appendix-c) for a list of problems found in real websites that
+potentially could have been caught by this API.
 
 # Use cases
 
@@ -41,212 +44,159 @@ properties are identical:
 
 * navigator.userAgent
 
-# Requirements
-
-* Context free
-  * Actions that a user takes on other sites or on other applications should not
-    affect the memory footprint of the site calling the API.
-* Minimal/no overhead when the API is not used.
-* Comprehensive
-  * Should account for all memory allocated on behalf of the web page, including
-    memory required by the browser's internal structures.
-* Actionable
-  * When used as a signal in aggregate, there should be low false positives and
-    low false negatives.
-  * An unexpected regression in the aggregate number implies that there is a high
-    probability that there is an unintentional memory-related coding error.
-  * With high probability, memory-related coding errors should cause regression
-    in the aggregate metric.
-* Definition consistent on all [supported platforms](#supported-platforms).
-
 # Proposed API
 
 ```
+callback MemoryEstimateCallback = void (long? memoryEstimate);
+
 partial interface Performance {
-  [SameObject] readonly attribute MemoryInfo memory;
-}
+  // This callback provides an estimate of the memory footprint of the site, not
+  // including memory associated with cross-origin iframes.
 
-// All of these values may be |null| if:
-//  - The browser is unable to provide accurate information due to
-//    implementation limitations.
-//  - Exposing the information could leak information across frames from
-//    different origins.
-interface MemoryInfo {
-  // All private memory being used by the process hosting the site.
-  readonly attribute unsigned long? privateMemoryFootprint;
+  // Memory estimate is only useful when collected in aggregate across a staged
+  // rollout of a website. Comparing the distributions between old and new
+  // versions of a website will provide insight into changes in memory
+  // consumption caused by changes to the website itself.
 
-  // IMPORTANT: When this number is greater than 1, all metrics over count by an
-  // undefined amount. It's recommended for most developers to simply ignore the
-  // results of performance.memory in this case.
-  //
-  // This represents the number of tabs with non-zero memory footprint in the
-  // process. Note that a tab's memory footprint may be spread across several
-  // processes.
-  //
-  // See [Appendix D](#appendix-d) for a more detailed explanation and examples.
-  readonly attributed unsigned long? numberOfTabs;
-
-  // The number of web or service workers being hosted in the process.
-  readonly attributed unsigned long? numberOfWorkers;
+  // The results from non-aggregated data [e.g. from individual calls to this
+  // method] are not meaningful. Results may be time-quantized, or have
+  // significant noise added to them.
+  void getMemoryEstimate(MemoryEstimateCallback handler);
 }
 ```
 
-# Proposed Implementation
+# Implementation
 
-## Outline
+The semantics of memory usage are inherently tied to browser implementation
+details. As such, the values returned by this API are not required to be
+consistent when compared between browsers. This gives browser vendors a lot of
+leeway with how to best implement the API.
 
-We define **privateMemoryFootprint** as non-reusable, private, anonymous,
-resident/swapped/compressed memory. See [Appendix A](#appendix-a) for
-definitions of these terms.
+## Guidelines
 
-* **non-reusable**: On macOS, the [implementation of
-  libMalloc](https://opensource.apple.com/source/libmalloc/libmalloc-140.40.1/src/nano_malloc.c.auto.html)
-  will sometimes call ```madvise(..., MADV_FREE_REUSABLE)``` instead of calling
-  mach_vm_deallocate on pages. These pages are, for all intents and purposes,
-  freed, despite still being potentially resident.
-* **anonymous**: The primary use of file-backed pages [non-anonymous] is for
-  loading the browser binary, system libraries, and other data files [e.g.
-  fonts, localization, etc.]. These memory regions introduce cross-platform
-  differences which are mostly outside of the control of site developers.
-* **private**: The semantics of accounting for shared memory are unclear. See
-  [Appendix B](#appendix-b) for more details. Furthermore, the site rarely has
-  direct control over the use of shared memory - it's primarily used as an
-  optimization by browser vendors. Not including shared memory in the
-  calculation avoids all of these complications.
-* **resident/swapped/compressed**: Whether memory is resident, swapped, or
-  compressed is context dependent - it primarily depends on system memory
-  pressure, and whether the memory was recently used. For compressed memory, we
-  count pre-compression size to avoid variance in compression ratio, which depends
-  on contents of compressed content.
+These guidelines are optional recommendations for browser vendors. For normative
+requirements, see [Requirements](#requirements).
 
-## Pseudo-code
+### What to include in memory estimate
 
-```
-def GetPrivateMemoryFootprint:
-  switch(platform):
-    case Windows:
-      return PROCESS_MEMORY_COUNTERS_EX.PrivateUsage
-    case Darwin:
-      task_info = task_info(TASK_VM_INFO)
-      if (Darwin.supports_phys_footprint):
-        return task_info.phys_footprint - GetAnonymousResidentSharedMemory()
-      return task_info.internal + task_info.compressed - GetAnonymousResidentSharedMemory()
-    default [Linux-derivative]:
-      status = /proc/<pid>/status
-      return status.RssAnon + status.VmSwap
+The rule of thumb: memory estimate should reflect memory that is directly
+attributable to web developers of the site.
 
-def GetAnonymousResidentSharedMemory:
-  <Requires the browser vendor to internally account for anonymous, resident,
-  shared memory regions on macOS>.
-```
+After all, the goal is to help web developers find changes in their code that
+unintentionally increase memory usage.
 
-## Drawbacks
-In order to keep the implementation of GetPrivateMemoryFootprint fast, we use
-OS-specific per-process counters. This means that each calculation is just a
-single syscall, but we will see platform-specific differences in the per-process
-counters.
+Examples of memory that should be included:
+* DOM elements and associated backing stores.
+* All memory needed to host script and CSS for the site.
 
-* On Windows, PROCESS_MEMORY_COUNTERS_EX.PagefileUsage overcounts by committed
-  memory that is not in the working set, or paged or compressed. This
-  overcounting primarily stems from a fundamental difference in memory model
-  between Linux and Windows. On Windows, committed memory counts towards the
-  total system commit charge, and thus is the relevant memory metric to track.
-* On macOS, task_info.compressed is comparable to VmSwap on Linux.
-  task_info.internal is similar to RssAnon, but it also includes faulted,
-  anonymous shared memory. We discount for this by keeping track of anonyous
-  shared memory, and then computing resident, anonmous shared memory on demand.
-  This undercounts, because it's possible for pages in a shared memory region to
-  be resident, but not faulted.
-* On macOS, phys_footprint is similar to internal + compressed, but also
-  includes IOKit memory. While the memory is technically shared rather than
-  private, functionally it behaves similarly to private memory. Thus, counting
-  it as part of privateMemoryFootprint seems appropriate.
+Examples of memory that should be excluded:
+* Graphics contexts used to render and display the site.
+  * The magnitude of this memory is frequently proportional to the size of the
+    window and/or display device, which are outside of the control of the
+    developer.
+  * The existence of these resources is frequently correlated with whether the
+    site is in a foreground or background tab, which is also outside of the
+    control of the developer.
 
-## Privacy
+Examples of memory whose inclusion is unclear:
+* Memory needed to host third-party JS libraries used by the site.
+  * Excluding this would be difficult for browser vendors to implement.
+* Memory needed to host iframes used by the site.
+* Shared memory. See [Appendix A](#appendix-a)
 
-This document suggests returning |null| for all the fields in performance.memory
-if the process hosting the current frame has ever hosted frames from a different
-origin.
+### Context free
 
-Even with this caveat, the API still introduces a secondary information channel
-for websites - namely, the number of different tabs hosting content in the
-process. If we make the assumption that all frames from a single origin are
-hosted in the same process, then the following example [courtesy of Boris
-Zbarsky] leaks information across origins.
+As much as possible, memory estimate should not reflect context outside of the
+control of the web developer. For example, memory estimate should not reflect:
+* The size of the window
+* The size or resolution of the display device
+* Whether the operating system is experiencing memory pressure
+  * Modern OSes will compress memory and/or swap it out to disk under memory
+    pressure. This can drastically affect the memory usage of the browser.
+* Whether the tab is visible
+* Memory that can be reused/discarded by the operating system at any point in
+  time.
+  * madvise (Linux variants + macOS), ashmem (Android), VirtualAllocEx (Windows)
+    are examples of APIs that can be used to lazily free memory. Exact semantics
+    are dependent on the operating system. Browser vendors are advised to tread
+    with caution.
+* File-backed memory.
+  * Similar to reusable/discardable memory, operating systems will clean and
+    discard pages from file-backed memory under memory pressure.
+  * Typical sources of file-backed memory include the browser binary, system
+    libraries and system resources, all of which are outside of the control of
+    the web developer.
 
-Say a page does: ```<a href="https://other-origin.html" rel="noopener">Click
-me</a>```. If the user clicks on the link, then this API allows the original
-origin to determine whether other-origin loads any subframes from the original
-origin.
+## Requirements
+
+### Returning null
+
+Browsers are always allowed to return null in place of a memory estimate. A
+browser which does not want web developers to optimize for this metric could
+choose to always return null.
+
+Browsers must return null if they are unable to compute a memory estimate that is
+isolated to the site calling the API.
+
+During a browing session for a site, browsers are allowed to return both null
+and non-null values for separate calls to getMemoryEstimate.
+
+### Comprehensive measurements
+
+Web developers will be optimizing their websites to minimize the number returned
+by getMemoryEstimate. Browser vendors must return comprehensive measurements.
+
+For example, if the implementation of getMemoryEstimate failed to include the
+backing store for Canvas2D elements, this would pressure web developers to use
+more Canvas2D elements, believing that they were improving the memory footprint
+of their site.
+
+At a minimum, getMemoryEstimate must return memory used for:
+* All DOM nodes, including backing store for Canvas2D, image, video, SVG, and
+  WebGL elements.
+* All CSS.
+* All javascript used by same-origin iframes from the site, including array
+  buffers and web assembly.
 
 ## Security
 
-In addition to side-channel attacks like Spectre, various attacks (such as those
-looking to exploit a use-after-free) often benefit from inducing a GC sweep or
-knowing when a GC sweep is going to happen. As such, this proposal intentionally
-avoids exposing any GC timing information.
+A malicious attacker could frequently poll this API to attempt to get
+information about garbage collection timings or other implementation details
+inadvertently exposed by the API.
 
-# <a name="appendix-a"></a>Appendix A - Terminology
+This specification recommends [but does not require]:
+* Quantizing measurements in the time domain with a threshold of at least 30
+  seconds.
+  * By only returning new measurements every 30 seconds, this restricts
+    information available to the attacker down to: There was a GC sweep in the
+    last thirty seconds.
+* Adding normalized noise to each measurement.
+  * Since the API is intended to be used in aggregate, the normalized noise will
+    not affect the mean of the distribution, but will greatly reduce precision
+    of information available to attackers.
 
-Each platform exposes a different memory model. This section describes a
-consistent set of terminology that will be used by this document. This
-terminology is intentionally Linux-biased, since that is the platform most
-readers are expected to be familiar with.
+## Privacy
 
-## <a name="supported-platforms"></a>Supported platforms
-* Linux
-* Android
-* ChromeOS
-* Windows [kernel: Windows NT]
-* macOS/iOS [kernel: Darwin/XNU/Mach]
+There are three data points exposed by this API which could be used to garner
+additional information about the user.
+* Whether or not the API returns null.
+* If the successive calls to the API transition from null to non-null or from
+  non-null to null.
+* Substantial variations in the returned value could indicate major changes in
+  browing state.
+  * e.g. If a site (origin A), adds an iframe to (origin B), it is possible that
+    the API could be used to get information about whether the iframe (origin B)
+    itself includes an iframe from (origin A).
 
-## Terminology
-Warning: This terminology is neither complete, nor precise, when compared to the
-terminology used by any specific platform. Any in-depth discussion should occur
-on a per-platform basis, and use terminology specific to that platform.
+The privacy implications of these data points will be dependent on the
+implementation of the API. Browser vendors are recommended to perform their own
+analysis.
 
-* **Virtual memory** - A per-process abstraction layer exposed by the kernel. A
-  contiguous region divided into 4kb **virtual pages**.
-* **Physical memory** - A per-machine abstraction layer internal to the kernel.
-  A contiguous region divided into 4kb **physical pages**. Each **physical
-  page** represents 4kb of physical memory.
-* **Resident** - A virtual page whose contents is backed by a physical
-  page.
-* **Swapped/Compressed** - A virtual page whose contents is backed by
-  something other than a physical page.
-* **Swapping/Compression** - [verb] The process of taking Resident pages and
-  making them Swapped/Compressed pages. This frees up physical pages.
-* **Unlocked Discardable/Reusable** - Android [Ashmem] and Darwin specific. A virtual
-  page whose contents is backed by a physical page, but the Kernel is free
-  to reuse the physical page at any point in time.
-* **Private** - A virtual page whose contents will only be modifiable by the
-  current process.
-* **Copy on Write** - A private virtual page owned by the parent process.
-  When either the parent or child process attempts to make a modification, the
-  child is given a private copy of the page.
-* **Shared** - A virtual page whose contents could be shared with other
-  processes.
-* **File-backed** - A virtual page whose contents reflect those of a
-  file.
-* **Anonymous** - A virtual page that is not file-backed.
+# <a name="appendix-a"></a> Appendix A - Shared Memory
 
-## Platform Specific Sources of Truth
-Memory is a complex topic, fraught with potential miscommunications. In an
-attempt to forestall disagreement over semantics, these are the sources of truth
-used by the authors to determine memory usage for a given process.
-
-* Windows: [SysInternals
-  VMMap](https://docs.microsoft.com/en-us/sysinternals/downloads/vmmap)
-* Darwin:
-  [vmmap](https://developer.apple.com/legacy/library/documentation/Darwin/Reference/ManPages/man1/vmmap.1.html)
-* Linux/Derivatives:
-  [/proc/\<pid\>/smaps](http://man7.org/linux/man-pages/man5/proc.5.html)
-
-# <a name="appendix-b"></a> Appendix B - Shared Memory
-
-Accounting for shared memory is poorly defined. If a memory region is mapped
-into multiple processes [possibly multiple times], which ones should it count
-towards?
+The semantics of accounting for shared memory is poorly defined. If a memory
+region is mapped into multiple processes [possibly multiple times], and is being
+used by multiple sites, which ones should it count towards?
 
 On Linux, one common solution is to use proportional set size, which counts
 1/Nth of the resident size, where N is the number of other mappings of the
@@ -255,21 +205,12 @@ downside is that it is context dependent. e.g. If a user opens more tabs, thus
 causing a system library to be mapped into more processes, the PSS for previous
 tabs will go down.
 
-File backed shared memory regions are typically not interesting to report, since
-they typically represent shared system resources, libraries, and the browser
-binary itself, all of which are outside of the control of developers.
+This specification recommends that all shared memory be attributed a single
+owner. It should count with its full weight in any memory estimates for that
+owner, and count as nothing for all other memory estimates. This retains the
+additive property, while still remaining context free.
 
-In Chrome, we have implemented ownership tracking for anonymous shared memory
-regions - each shared memory region counts towards exactly one process, which is
-determined by the type and usage of the shared memory region. We considered
-exposing these numbers in performance.memory, but it seemed like it would cause
-more confusion than it would help. The two main use cases are shared tiles
-between a renderer and GPU process, and shared network resources between a
-renderer and the browser process. Both of these are Chrome-specific
-optimizations, context-dependent, and pretty much entirely outside of the
-control of developers.
-
-# <a name="appendix-c"></a> Appendix C - Chrome's Previous Implementation of performance.memory
+# <a name="appendix-b"></a> Appendix B - Chrome's Previous Implementation of performance.memory
 
 The current implementation of performance.memory in Chrome exposes
 usedJSHeapSize and totalJSHeapSize. These metrics have problems:
@@ -290,37 +231,27 @@ typically associate with JS.
 Moreover performance.memory in Chrome exposes jsHeapSizeLimit which is an JavaScript engine specific
 heuristic which may not exisit in other JavaScript engines.
 
-# <a name="appendix-d"></a> Appendix D - Explanation and Examples for numberOfTabs
+# <a name="appendix-c"></a> Appendix C - Problems Affecting Real Websites
 
-This number describes the number of frame trees with at least one frame being
-hosted by the process.
+This section contains a list of memory-related problems discovered on real
+websites. These problems could have potentially been caught by the web
+developers if they were using this API when rolling out the changes that
+introduced the issues. The issues ranged in size from a couple of MB to 1GB+.
 
-Note: All examples assume frames from different origins are always hosted in
-different processes.
+* Every five minutes, a script would add [but never remove] an event listener
+  for window.unload. The callback was an anonymous function that inadvertently
+  captured a significant amount of context.
+  * This pattern was observed on multiple occasions.
+* A site was storing error messages without bound. These included stringified,
+  large JSON objects.
+* A site was creating a large number of duplicates of semantically immutable
+  data.
+  * This pattern was observed on multiple occasions.
+* A site was creating at startup a large array buffer that would usually remain
+  untouched for the duration of the session [rarely used feature].
+* A site was unnecessarily creating hundreds of Canvas2D elements.
 
-* Example 1: User opens two tabs to \<Origin A\>, a simple site with a single
-  frame.
-  * More common case: Browser hosts the two frames in different processes.
-    numberOfTabs is *1* for both sites, and the metrics will be accurate.
-  * Less common case: Browser hosts the two frames in the same process.
-    numberOfTabs is *2* for both sites, and the metrics will be
-    inaccurate.
-    * Dividing by 2 will not always do the right thing! See next example.
-* Example 2: User opens tab to \<Origin A\> [call this *frame 1*], which
-  window.opens() a new tab to \<Origin B\>. \<Origin B\> includes a subframe from
-  \<Origin A\> [call this *frame 2*].
-  * *frame 1* and *frame 2* will be hosted in the same process.
-    numberOfTabs is *2* when either frame calls performance.memory.
-  * If *frame 2* has a memory footprint that is ten times that of *frame 1*,
-    then naively dividing the memory footprint by 2 will overcount the memory
-    footprint of *frame 1*, and undercount the footprint of *frame 2*.
-* Example 3: User opens tab to \<Origin A\> [call this *frame 1*]. *frame 1*
-  has two subframes, *frame 2* \<Origin A\> and *frame 3* \<Origin B\>.
-  * When either *frame 1* or *frame 2* call performance.memory,
-    numberOfTabs is *1* and memory numbers reflect the sum of memory used
-    by both *frame 1* and *frame 2*, but NOT *frame 3*.
-
-# Appendix E - Possible Future Extensions
+# Appendix D - Possible Future Extensions
 
 It would be helpful to provide web developers more categories of memory usage,
 to help narrow down sources of regressions. Potential categories include JS
@@ -329,3 +260,4 @@ some internal accounting for this, coming up with consistent, low-overhead,
 cross-browser definitions seems difficult. We may wish to consider adding an
 "implementation profiling hints" dictionary which vendors can use to expose
 vendor-specific measurements.
+
