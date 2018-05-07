@@ -186,7 +186,7 @@ additional information about the user.
 The privacy implications of these data points will be dependent on the
 implementation of the API. Browser vendors should perform their own analysis.
 
-# <a name="appendix-b"></a> Appendix B - Chrome's Previous Implementation of performance.memory
+# <a name="appendix-a"></a> Appendix A - Chrome's Previous Implementation of performance.memory
 
 The current implementation of performance.memory in Chrome exposes
 usedJSHeapSize and totalJSHeapSize. These metrics have problems:
@@ -201,7 +201,7 @@ other allocators.
   enough granularity to determine releases that regress memory.
   * See feedback from [Facebook](https://github.com/WICG/performance-memory/issues/7) and [GSuite and Gmail](https://github.com/WICG/performance-memory/issues/8).
 
-# <a name="appendix-c"></a> Appendix C - Problems Affecting Real Websites
+# <a name="appendix-b"></a> Appendix B - Problems Affecting Real Websites
 
 This section contains a list of memory-related problems discovered on real
 websites. These problems could have potentially been caught by the web
