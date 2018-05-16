@@ -1,0 +1,55 @@
+// To generate the block diagram, run "blockdiag example.diag"
+// See http://blockdiag.com/en/index.html
+blockdiag {
+  class always_include [color = green];
+  class sometimes_include [color = yellow];
+  class never_include [color = red];
+
+  group primer {
+    orientation = portrait;
+    primer1 [label = "frame to include\nin memory estimate", class="always_include"];
+    primer3 [label = "frame inclusion is\nimplementation dependent", class="sometimes_include"];
+    primer2 [label = "frame to exclude\nfrom memory estimate", class="never_include"];
+  }
+
+   group example1 {
+     A [label = "foo.A.com\n(browsing context)", class="always_include"];
+     Aframe1 [label = "bar.A.com", class="always_include"];
+     Aframe11 [label = "A.com", class="always_include"];
+     Aframe2 [label = "B.com", class="sometimes_include"];
+     Aframe21 [label = "buzz.A.com", class="sometimes_include"];
+   }
+
+   A -> Aframe1 [label = "embeds"];
+   Aframe1 -> Aframe11 [label = "embeds"];
+   A -> Aframe2 [label = "embeds"];
+   Aframe2 -> Aframe21 [label = "embeds"];
+
+   group example2 {
+     B [label = "foo.A.com\n(browsing context)", class="always_include"];
+     Bopener [label = "window.open\nsimilar origin"];
+     Bwindow2 [label = "ick.A.com", class="always_include"];
+   }
+   B -> Bopener -> Bwindow2;
+
+   group example3 {
+     C [label = "foo.A.com\n(browsing context)", class="always_include"];
+     Copener [label = "window.open\ndifferent origin"];
+     Cwindow2 [label = "bar.B.com", class="never_include"];
+   }
+   C -> Copener -> Cwindow2;
+
+   group example4 {
+     D [label = "foo.A.com\n(browsing context)", class="always_include"];
+     Dopener [label = "window.open\n('noopener')"];
+     Dwindow2 [label = "foo.A.com", class="never_include"];
+   }
+   D -> Dopener -> Dwindow2;
+
+   group example5 {
+     orientation = portrait;
+     E [label = "foo.A.com\n(browsing context)", class="always_include"];
+     EOpener [label = "User has two windows.\nwindow.open not used."];
+     Ewindow2 [label = "foo.A.com", class="never_include"];
+   }
+}

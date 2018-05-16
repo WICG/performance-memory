@@ -47,6 +47,8 @@ properties are identical:
 # Proposed API
 
 ```
+// Developers should aggregate all non-null values of memoryEstimate.
+// Note: Noise added by the browser may cause memoryEstimate to become negative.
 callback MemoryEstimateCallback = void (long? memoryEstimate);
 
 partial interface Performance {
@@ -73,57 +75,16 @@ leeway with how to best implement the API.
 
 ## Guidelines
 
-These guidelines are optional recommendations for browser vendors. For normative
-requirements, see [Requirements](#requirements).
+These guidelines provide a framework to help browser vendors decide which memory
+should be included in memory estimate. For normative requirements, see
+[Requirements](#requirements).
 
-### What to include in memory estimate
-
-The rule of thumb: memory estimate should reflect memory that is directly
-attributable to web developers of the site.
-
-After all, the goal is to help web developers find changes in their code that
-unintentionally increase memory usage.
-
-Examples of memory that should be included:
-* DOM elements and associated backing stores.
-* All memory needed to host script and CSS for the site.
-
-Examples of memory that should be excluded:
-* Graphics contexts used to render and display the site.
-  * The magnitude of this memory is frequently proportional to the size of the
-    window and/or display device, which are outside of the control of the
-    developer.
-  * The existence of these resources is frequently correlated with whether the
-    site is in a foreground or background tab, which is also outside of the
-    control of the developer.
-
-Examples of memory whose inclusion is unclear:
-* Memory needed to host third-party JS libraries used by the site.
-  * Excluding this would be difficult for browser vendors to implement.
-* Memory needed to host iframes used by the site.
-* Shared memory. See [Appendix C](#appendix-c)
-
-### Context free
-
-As much as possible, memory estimate should not reflect context outside of the
-control of the web developer. For example, memory estimate should not reflect:
-* The size of the window
-* The size or resolution of the display device
-* Whether the operating system is experiencing memory pressure
-  * Modern OSes will compress memory and/or swap it out to disk under memory
-    pressure. This can drastically affect the memory usage of the browser.
-* Whether the tab is visible
-* Memory that can be reused/discarded by the operating system at any point in
-  time.
-  * madvise (Linux variants + macOS), ashmem (Android), VirtualAllocEx (Windows)
-    are examples of APIs that can be used to lazily free memory. Exact semantics
-    are dependent on the operating system.
-* File-backed memory.
-  * Similar to reusable/discardable memory, operating systems will clean and
-    discard pages from file-backed memory under memory pressure.
-  * Typical sources of file-backed memory include the browser binary, system
-    libraries and system resources, all of which are outside of the control of
-    the web developer.
+* Memory estimate should be directly attributable to the web developer.
+  * The goal is to help web developers find changes in *their* code that
+    increase memory usage.
+* Memory estimate should be context free.
+  * It should not reflect memory outside of the control of the web developer.
+  * See [Appendix C](#appendix-c) for examples of context-dependent memory.
 
 ## Requirements
 
@@ -133,8 +94,8 @@ Browsers are always allowed to return null in place of a memory estimate. A
 browser which does not want web developers to optimize for this metric could
 choose to always return null.
 
-Browsers must return null if they are unable to compute a memory estimate that is
-isolated to the site calling the API.
+Browsers must return null if they are unable to compute a memory estimate that
+is isolated to the site calling the API.
 
 During a browing session for a site, browsers are allowed to return both null
 and non-null values for separate calls to getMemoryEstimate.
@@ -144,17 +105,45 @@ and non-null values for separate calls to getMemoryEstimate.
 Web developers will be optimizing their websites to minimize the number returned
 by getMemoryEstimate. Browser vendors must return comprehensive measurements.
 
-For example, if the implementation of getMemoryEstimate failed to include the
-backing store for Canvas2D elements, this would pressure web developers to use
-more Canvas2D elements, believing that they were improving the memory footprint
-of their site.
+For example, if the implementation of getMemoryEstimate reported memory usage
+for small strings but not large strings, this would pressure web developers to
+use larger strings, potentially even concatenating small strings into large
+strings, believing that they were improving the memory footprint of their site.
 
 At a minimum, getMemoryEstimate must return memory used for:
 * All DOM nodes, including backing store for Canvas2D, image, video, SVG, and
   WebGL elements.
-* All CSS.
-* All javascript used by same-origin iframes from the site, including array
-  buffers and web assembly.
+* The internal representation for all
+  [resources](https://html.spec.whatwg.org/#resources) This may include
+  compressed images, style sheets, and the source itself.
+* Plugins.
+* All script, including web assembly and Web Workers. This includes backing
+  store for array buffers and shared array buffers.
+* SharedWorkers and ServiceWorkers for the browsing context.
+
+### iframes and Window.open()
+
+Memory estimate must include all memory retainable by the current JavaScript
+execution context.
+
+The following three statements are equivalent:
+
+* Memory estimate must include all memory retainable by JavaScript execution
+  contexts that can potentially (via document.domain) be synchronously scripted
+  from the current JavaScript execution context.
+* Memory estimate must include all memory retainable by JavaScript execution
+  contexts in this [unit of related similar-origin browsing
+  contexts](https://html.spec.whatwg.org/multipage/browsers.html#groupings-of-browsing-contexts).
+* Memory estimate must include all similar-origin iframes in the current window,
+  and all similar-origin iframes in similar-origin windows opened via
+  window.open (without "noopener").
+  * Two origins are similar if they share the same eTLD+1.
+
+Ideally, memory estimate would exclude memory from different-origin iframes
+in the same window. Since browsers may not be able to implement this, this is
+explicitly a non-requirement.
+
+See [Appendix D](#appendix-d) for examples.
 
 ## Security
 
@@ -186,7 +175,7 @@ additional information about the user.
 The privacy implications of these data points will be dependent on the
 implementation of the API. Browser vendors should perform their own analysis.
 
-# <a name="appendix-a"></a> Appendix A - Chrome's Previous Implementation of performance.memory
+# <a name="appendix-a"></a> Appendix A - Chrome's Current Implementation of performance.memory
 
 The current implementation of performance.memory in Chrome exposes
 usedJSHeapSize and totalJSHeapSize. These metrics have problems:
@@ -210,7 +199,9 @@ introduced the issues. The issues ranged in size from a couple of MB to 1GB+.
 
 * Every five minutes, a script would add [but never remove] an event listener
   for window.unload. The callback was an anonymous function that inadvertently
-  captured a significant amount of context.
+  captured a significant amount of context from a same-origin iframe. The iframe
+  was subsequently removed from the DOM, but the event listener kept alive much
+  of the memory.
   * This pattern was observed on multiple occasions.
 * A site was storing error messages without bound. These included stringified,
   large JSON objects.
@@ -221,31 +212,24 @@ introduced the issues. The issues ranged in size from a couple of MB to 1GB+.
   untouched for the duration of the session [rarely used feature].
 * A site was unnecessarily creating hundreds of Canvas2D elements.
 
-# <a name="appendix-c"></a> Appendix C - Shared Memory
+# <a name="appendix-c"></a> Appendix C - Examples of context-dependent memory
 
-The semantics of accounting for shared memory are poorly defined. If a memory
-region is mapped into multiple processes [possibly multiple times], and is being
-used by multiple sites, which ones should it count towards?
+* Memory used by graphics contexts to display the site.
+  * The magnitude is typically proportional to the size of the window.
+  * The magnitude is typically proportional to the scale factor of the display.
+  * The magnitude is dependent on whether the window is visible.
+* Memory that can be reused/discarded by the operating system at any point in
+  time.
+  * madvise (Linux variants + macOS), ashmem (Android), VirtualAllocEx (Windows)
+    are examples of APIs that can be used to lazily free memory. Exact semantics
+    are dependent on the operating system.
+* File-backed memory.
+  * Similar to reusable/discardable memory, operating systems will clean and
+    discard pages from file-backed memory under memory pressure.
+  * Typical sources of file-backed memory include the browser binary, system
+    libraries and system resources, all of which are outside of the control of
+    the web developer.
 
-On Linux, one common solution is to use proportional set size, which counts
-1/Nth of the resident size, where N is the number of other mappings of the
-region. This has the nice property of being additive across processes. The
-downside is that it is context dependent. e.g. If a user opens more tabs, thus
-causing a system library to be mapped into more processes, the PSS for previous
-tabs will go down.
+# <a name="appendix-d"></a> Appendix D - Examples of memory estimate
 
-This specification recommends that all shared memory be attributed a single
-owner. It should count with its full weight in any memory estimates for that
-owner, and count as nothing for all other memory estimates. This retains the
-additive property, while still remaining context free.
-
-# Appendix D - Possible Future Extensions
-
-It would be helpful to provide web developers more categories of memory usage,
-to help narrow down sources of regressions. Potential categories include JS
-memory usage, DOM nodes, CSS, Canvas, audio/video, etc. While Chrome does have
-some internal accounting for this, coming up with consistent, low-overhead,
-cross-browser definitions seems difficult. We may wish to consider adding an
-"implementation profiling hints" dictionary which vendors can use to expose
-vendor-specific measurements.
-
+![Example of memory estimate](/example.png)
