@@ -143,9 +143,8 @@ The following three statements are equivalent:
     (without "noopener").
   * Two origins are similar if they share the same eTLD+1.
 
-Ideally, memory estimate would exclude memory from different-origin iframes
-in the same window. Since browsers may not be able to implement this, this is
-explicitly a non-requirement.
+Memory estimate should always exclude memory from different-origin (non-similar)
+iframes.
 
 See [Appendix D](#appendix-d) for examples.
 

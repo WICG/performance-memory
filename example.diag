@@ -4,13 +4,11 @@
 // See http://blockdiag.com/en/index.html
 blockdiag {
   class always_include [color = green];
-  class sometimes_include [color = yellow];
   class never_include [color = red];
 
   group primer {
     orientation = portrait;
     primer1 [label = "always include", class="always_include"];
-    primer3 [label = "implementation\ndependent", class="sometimes_include"];
     primer2 [label = "never include", class="never_include"];
   }
 
@@ -18,7 +16,7 @@ blockdiag {
      A [label = "foo.A.com\n(browsing context)", class="always_include"];
      Aframe1 [label = "bar.A.com", class="always_include"];
      Aframe11 [label = "A.com", class="always_include"];
-     Aframe2 [label = "B.com", class="sometimes_include"];
+     Aframe2 [label = "B.com", class="never_include"];
      Aframe21 [label = "buzz.A.com", class="always_include"];
    }
 
