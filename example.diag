@@ -1,4 +1,6 @@
-// To generate the block diagram, run "blockdiag example.diag"
+// To generate the block diagram,
+//   run "blockdiag example.diag" on Linux
+//   run "blockdiag -f /Library/Fonts/Verdana.ttf example.diag" on macOS
 // See http://blockdiag.com/en/index.html
 blockdiag {
   class always_include [color = green];
@@ -7,9 +9,9 @@ blockdiag {
 
   group primer {
     orientation = portrait;
-    primer1 [label = "frame to include\nin memory estimate", class="always_include"];
-    primer3 [label = "frame inclusion is\nimplementation dependent", class="sometimes_include"];
-    primer2 [label = "frame to exclude\nfrom memory estimate", class="never_include"];
+    primer1 [label = "always include", class="always_include"];
+    primer3 [label = "implementation\ndependent", class="sometimes_include"];
+    primer2 [label = "never include", class="never_include"];
   }
 
    group example1 {
@@ -17,7 +19,7 @@ blockdiag {
      Aframe1 [label = "bar.A.com", class="always_include"];
      Aframe11 [label = "A.com", class="always_include"];
      Aframe2 [label = "B.com", class="sometimes_include"];
-     Aframe21 [label = "buzz.A.com", class="sometimes_include"];
+     Aframe21 [label = "buzz.A.com", class="always_include"];
    }
 
    A -> Aframe1 [label = "embeds"];
@@ -29,15 +31,19 @@ blockdiag {
      B [label = "foo.A.com\n(browsing context)", class="always_include"];
      Bopener [label = "window.open\nsimilar origin"];
      Bwindow2 [label = "ick.A.com", class="always_include"];
+     Bframe3 [ label = "bar.B.com", class="never_include"];
    }
    B -> Bopener -> Bwindow2;
+   Bwindow2 -> Bframe3 [label = "embeds"];
 
    group example3 {
      C [label = "foo.A.com\n(browsing context)", class="always_include"];
      Copener [label = "window.open\ndifferent origin"];
      Cwindow2 [label = "bar.B.com", class="never_include"];
+     Cframe3 [label = "car.A.com", class="always_include"];
    }
    C -> Copener -> Cwindow2;
+   Cwindow2 -> Cframe3 [label = "embeds"];
 
    group example4 {
      D [label = "foo.A.com\n(browsing context)", class="always_include"];
@@ -49,7 +55,7 @@ blockdiag {
    group example5 {
      orientation = portrait;
      E [label = "foo.A.com\n(browsing context)", class="always_include"];
-     EOpener [label = "User has two windows.\nwindow.open not used."];
+     EOpener [label = "User has two\n unrelated windows"];
      Ewindow2 [label = "foo.A.com", class="never_include"];
    }
 }

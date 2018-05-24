@@ -121,7 +121,7 @@ At a minimum, getMemoryEstimate must return memory used for:
   store for array buffers and shared array buffers.
 * SharedWorkers and ServiceWorkers for the browsing context.
 
-### iframes and Window.open()
+### iframes, Window.open(), links with target="_blank"
 
 Memory estimate must include all memory retainable by the current JavaScript
 execution context.
@@ -131,12 +131,16 @@ The following three statements are equivalent:
 * Memory estimate must include all memory retainable by JavaScript execution
   contexts that can potentially (via document.domain) be synchronously scripted
   from the current JavaScript execution context.
+  * This includes memory that is potentially [but not currently] retained by the
+    JavaScript execution context.
 * Memory estimate must include all memory retainable by JavaScript execution
   contexts in this [unit of related similar-origin browsing
   contexts](https://html.spec.whatwg.org/multipage/browsers.html#groupings-of-browsing-contexts).
-* Memory estimate must include all similar-origin iframes in the current window,
-  and all similar-origin iframes in similar-origin windows opened via
-  window.open (without "noopener").
+* Memory estimate must include:
+  * All similar-origin iframes in the current window,
+  * All similar-origin iframes in windows opened via window.open (without "noopener")
+  * All similar-origin iframes in windows opened via links with target="_blank"
+    (without "noopener").
   * Two origins are similar if they share the same eTLD+1.
 
 Ideally, memory estimate would exclude memory from different-origin iframes
