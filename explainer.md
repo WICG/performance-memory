@@ -103,7 +103,8 @@ and non-null values for separate calls to getMemoryEstimate.
 ### Comprehensive measurements
 
 Web developers will be optimizing their websites to minimize the number returned
-by getMemoryEstimate. Browser vendors must return comprehensive measurements.
+by getMemoryEstimate. To prevent improper optimizations, browser vendors must
+return comprehensive measurements.
 
 For example, if the implementation of getMemoryEstimate reported memory usage
 for small strings but not large strings, this would pressure web developers to
@@ -124,14 +125,15 @@ context for:
 Browsing contexts can keep alive resources in [related similar-origin browsing
 contexts](https://html.spec.whatwg.org/multipage/browsers.html#groupings-of-browsing-contexts).
 Since JavaScript is a garbage-collected language, there's no way to attribute
-ownership to these resources.
+ownership of these resources to a single browsing context. As such, we must
+include all resources in related similar-origin browsing contexts.
 
-* getMemoryEstimate must included memory used by all related similar-origin
-  browsing contexts. For more details, see the next section.
+getMemoryEstimate must include memory used by:
+* All related similar-origin browsing contexts.
 
 Some resources can be shared by multiple browsing contexts. If the resource is
-used by any relevant browsing context, it should count towards the memory
-estimate.
+used by any related similar-origin browsing context, it must be included in the
+memory estimate.
 
 getMemoryEstimate must include memory used for:
 * ServiceWorkers controlling any window, iframe or worker that is otherwise
