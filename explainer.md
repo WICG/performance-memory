@@ -110,18 +110,38 @@ for small strings but not large strings, this would pressure web developers to
 use larger strings, potentially even concatenating small strings into large
 strings, believing that they were improving the memory footprint of their site.
 
-At a minimum, getMemoryEstimate must return memory used for:
+At a minimum, getMemoryEstimate must include memory used by the current browsing
+context for:
 * All DOM nodes, including backing store for Canvas2D, image, video, SVG, and
   WebGL elements.
 * The internal representation for all
-  [resources](https://html.spec.whatwg.org/#resources) This may include
+  [resources](https://html.spec.whatwg.org/#resources). This may include
   compressed images, style sheets, and the source itself.
 * Plugins.
-* All script, including web assembly and Web Workers. This includes backing
-  store for array buffers and shared array buffers.
-* SharedWorkers and ServiceWorkers for the browsing context.
+* All script, including web assembly and Web Workers. This includes the backing
+  store for array buffers.
 
-### iframes, Window.open(), links with target="_blank"
+Browsing contexts can keep alive resources in [related similar-origin browsing
+contexts](https://html.spec.whatwg.org/multipage/browsers.html#groupings-of-browsing-contexts).
+Since JavaScript is a garbage-collected language, there's no way to attribute
+ownership to these resources.
+
+* getMemoryEstimate must included memory used by all related similar-origin
+  browsing contexts. For more details, see the next section.
+
+Some resources can be shared by multiple browsing contexts. If the resource is
+used by any relevant browsing context, it should count towards the memory
+estimate.
+
+getMemoryEstimate must include memory used for:
+* ServiceWorkers controlling any window, iframe or worker that is otherwise
+  being included in the memory estimate.
+* SharedWorkers accessible by any window, iframe or worker that is otherwise
+  being included in the memory estimate.
+* Shared array buffers used by any browsing context that is otherwise being
+  included in the memory estimate.
+
+### Related Similar-Origin Browsing Contexts
 
 Memory estimate must include all memory retainable by the current JavaScript
 execution context.
@@ -234,5 +254,10 @@ introduced the issues. The issues ranged in size from a couple of MB to 1GB+.
     the web developer.
 
 # <a name="appendix-d"></a> Appendix D - Examples of memory estimate
+
+Each box with a URL represents a browsing context. Arrows depict the
+relationship between them. In each example, the leftmost browsing context calls
+getMemoryEstimate(). The color of each browsing context depicts whether it
+should be included in the memory estimate.
 
 ![Example of memory estimate](/example.png)
