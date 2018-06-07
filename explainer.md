@@ -94,8 +94,8 @@ Browsers are always allowed to return null in place of a memory estimate. A
 browser which does not want web developers to optimize for this metric could
 choose to always return null.
 
-Browsers must return null if they are unable to compute a memory estimate that
-is isolated to the site calling the API.
+Browsers must return null if they are unable to compute an accurate memory
+estimate.
 
 During a browing session for a site, browsers are allowed to return both null
 and non-null values for separate calls to getMemoryEstimate.
@@ -122,31 +122,25 @@ context for:
 * All script, including web assembly and Web Workers. This includes the backing
   store for array buffers.
 
+### Related Similar-Origin Browsing Contexts
+
 Browsing contexts can keep alive resources in [related similar-origin browsing
 contexts](https://html.spec.whatwg.org/multipage/browsers.html#groupings-of-browsing-contexts).
 Since JavaScript is a garbage-collected language, there's no way to attribute
-ownership of these resources to a single browsing context. As such, we must
-include all resources in related similar-origin browsing contexts.
+ownership of a subset of resources in a browsing context. As such, memory
+estimate must include all resources in related similar-origin browsing contexts.
 
-getMemoryEstimate must include memory used by:
-* All related similar-origin browsing contexts.
+See the first example in [Appendix B](#appendix-b) for an example of a memory
+problem involving retention of resources across browsing contexts.
 
-Some resources can be shared by multiple browsing contexts. If the resource is
-used by any related similar-origin browsing context, it must be included in the
-memory estimate.
-
-getMemoryEstimate must include memory used for:
-* ServiceWorkers controlling any window, iframe or worker that is otherwise
-  being included in the memory estimate.
-* SharedWorkers accessible by any window, iframe or worker that is otherwise
-  being included in the memory estimate.
-* Shared array buffers used by any browsing context that is otherwise being
-  included in the memory estimate.
-
-### Related Similar-Origin Browsing Contexts
-
-Memory estimate must include all memory retainable by the current JavaScript
-execution context.
+Aside: It's possible, given a resource X, to compute a graph of all resources
+retained by X. This could be used to provide a maximal retainable-subset of
+resources to use in different browsing contexts. This has two problems:
+* This will be slow.
+* This is context dependent, and potentially has high variance in time - small
+  JavaScript changes [e.g. creation of a JavaScript function which captures a
+  global variable] could lead to drastic changes in the maximal
+  retainable-subset of resources.
 
 The following three statements are equivalent:
 
@@ -168,7 +162,23 @@ The following three statements are equivalent:
 Memory estimate should always exclude memory from different-origin (non-similar)
 iframes.
 
-See [Appendix D](#appendix-d) for examples.
+See [Appendix D](#appendix-d) for examples of which browsing contexts to include
+in the memory estimate.
+
+### Shared Resources
+
+Some resources can be shared by multiple browsing contexts. If the resource is
+used by any related similar-origin browsing context, it must be included in the
+memory estimate.
+
+getMemoryEstimate must include memory used for:
+* ServiceWorkers controlling any window, iframe or worker that is otherwise
+  being included in the memory estimate.
+* SharedWorkers accessible by any window, iframe or worker that is otherwise
+  being included in the memory estimate.
+* Shared array buffers used by any JavaScript execution context that is
+  otherwise being included in the memory estimate.
+
 
 ## Security
 
