@@ -47,10 +47,6 @@ properties are identical:
 # Proposed API
 
 ```
-// Developers should aggregate all non-null values of memoryEstimate.
-// Note: Noise added by the browser may cause memoryEstimate to become negative.
-callback MemoryEstimateCallback = void (long? memoryEstimate);
-
 partial interface Performance {
   // This callback provides an estimate of the memory footprint of the site.
 
@@ -62,7 +58,10 @@ partial interface Performance {
   // The results from non-aggregated data [e.g. from individual calls to this
   // method] are not meaningful. Results may be time-quantized, or have
   // significant noise added to them.
-  void getMemoryEstimate(MemoryEstimateCallback handler);
+
+  // A null value means that the browser was unable to compute a memory estimate.
+  // Note: Noise added by the browser may cause the result to be negative.
+  Promise<long?> getMemoryEstimate();
 }
 ```
 
