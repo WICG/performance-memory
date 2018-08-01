@@ -183,10 +183,10 @@ getMemoryEstimate must include memory used for:
 Differences between browser vendor implementations of getMemoryEstimate are
 expected since memory is an implementation detail. The exact behavior is less
 important, as long as the implementation:
-  * Is internally consistent.
-  * Is comprehensive.
-  * Helps web developers find memory issues.
-  * Protects the user's privacy and security.
+* Is internally consistent.
+* Is comprehensive.
+* Helps web developers find memory issues.
+* Protects the user's privacy and security.
 
 ## Security
 
