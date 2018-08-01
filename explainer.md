@@ -178,6 +178,15 @@ getMemoryEstimate must include memory used for:
 * Shared array buffers used by any JavaScript execution context that is
   otherwise being included in the memory estimate.
 
+### Disclaimer
+
+Differences between browser vendor implementations of getMemoryEstimate are
+expected since memory is an implementation detail. The exact behavior is less
+important, as long as the implementation:
+* Is internally consistent.
+* Is comprehensive.
+* Helps web developers find memory issues.
+* Protects the user's privacy and security.
 
 ## Security
 
