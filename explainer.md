@@ -61,7 +61,7 @@ partial interface Performance {
 
   // A null value means that the browser was unable to compute a memory estimate.
   // Note: Noise added by the browser may cause the result to be negative.
-  Promise<long?> getMemoryEstimate();
+  Promise<long?> getMemoryEstimateUASpecific();
 }
 ```
 
@@ -97,21 +97,22 @@ Browsers must return null if they are unable to compute an accurate memory
 estimate.
 
 During a browing session for a site, browsers are allowed to return both null
-and non-null values for separate calls to getMemoryEstimate.
+and non-null values for separate calls to getMemoryEstimateUASpecific.
 
 ### Comprehensive measurements
 
 Web developers will be optimizing their websites to minimize the number returned
-by getMemoryEstimate. To prevent improper optimizations, browser vendors must
-return comprehensive measurements.
+by getMemoryEstimateUASpecific. To prevent improper optimizations, browser
+vendors must return comprehensive measurements.
 
-For example, if the implementation of getMemoryEstimate reported memory usage
-for small strings but not large strings, this would pressure web developers to
-use larger strings, potentially even concatenating small strings into large
-strings, believing that they were improving the memory footprint of their site.
+For example, if the implementation of getMemoryEstimateUASpecific reported
+memory usage for small strings but not large strings, this would pressure web
+developers to use larger strings, potentially even concatenating small strings
+into large strings, believing that they were improving the memory footprint of
+their site.
 
-At a minimum, getMemoryEstimate must include memory used by the current browsing
-context for:
+At a minimum, getMemoryEstimateUASpecific must include memory used by the
+current browsing context for:
 * All DOM nodes, including backing store for Canvas2D, image, video, SVG, and
   WebGL elements.
 * The internal representation for all
@@ -170,7 +171,7 @@ Some resources can be shared by multiple browsing contexts. If the resource is
 used by any related similar-origin browsing context, it must be included in the
 memory estimate.
 
-getMemoryEstimate must include memory used for:
+getMemoryEstimateUASpecific must include memory used for:
 * ServiceWorkers controlling any window, iframe or worker that is otherwise
   being included in the memory estimate.
 * SharedWorkers accessible by any window, iframe or worker that is otherwise
@@ -180,9 +181,9 @@ getMemoryEstimate must include memory used for:
 
 ### Disclaimer
 
-Differences between browser vendor implementations of getMemoryEstimate are
-expected since memory is an implementation detail. The exact behavior is less
-important, as long as the implementation:
+Differences between browser vendor implementations of
+getMemoryEstimateUASpecific are expected since memory is an implementation
+detail. The exact behavior is less important, as long as the implementation:
 * Is internally consistent.
 * Is comprehensive.
 * Helps web developers find memory issues.
@@ -277,7 +278,7 @@ introduced the issues. The issues ranged in size from a couple of MB to 1GB+.
 
 Each box with a URL represents a browsing context. Arrows depict the
 relationship between them. In each example, the leftmost browsing context calls
-getMemoryEstimate(). The color of each browsing context depicts whether it
-should be included in the memory estimate.
+getMemoryEstimateUASpecific(). The color of each browsing context depicts
+whether it should be included in the memory estimate.
 
 ![Example of memory estimate](/example.png)
